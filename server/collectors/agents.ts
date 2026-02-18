@@ -43,10 +43,50 @@ function sessionLabel(key: string): string {
   return parts.slice(2).join(":") || key;
 }
 
+// Old collectAgents replaced by version with CLI process detection below
+
+export interface CLIProcess {
+  pid: number;
+  command: string;
+  agent: string; // "codex" | "claude" | "other"
+  uptime: string;
+}
+
+let cachedCLIProcesses: CLIProcess[] = [];
+
+async function detectCLIProcesses(): Promise<CLIProcess[]> {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const exec = promisify(execFile);
+
+  try {
+    const { stdout } = await exec("ps", ["-eo", "pid,etime,args", "--no-headers"], { timeout: 5000 });
+    const procs: CLIProcess[] = [];
+    for (const line of stdout.split("\n")) {
+      const match = line.trim().match(/^(\d+)\s+(\S+)\s+(.+)$/);
+      if (!match) continue;
+      const [, pid, etime, args] = match;
+      const lower = args.toLowerCase();
+      if (lower.includes("codex") && !lower.includes("node_modules")) {
+        procs.push({ pid: Number(pid), command: args.slice(0, 120), agent: "codex", uptime: etime });
+      } else if (lower.includes("claude") && lower.includes("cli") && !lower.includes("node_modules")) {
+        procs.push({ pid: Number(pid), command: args.slice(0, 120), agent: "claude", uptime: etime });
+      }
+    }
+    cachedCLIProcesses = procs;
+    return procs;
+  } catch {
+    return cachedCLIProcesses;
+  }
+}
+
 export async function collectAgents(): Promise<{
   sessions: AgentSession[];
   processes: RunningProcess[];
+  cliProcesses: CLIProcess[];
 }> {
+  const cliProcs = await detectCLIProcesses();
+
   try {
     const { stdout } = await exec(
       `${NVM_NODE}/openclaw`,
@@ -68,9 +108,9 @@ export async function collectAgents(): Promise<{
   } catch (err: any) {
     console.error("Agent collector error:", err.message);
   }
-  return { sessions: cachedSessions, processes: cachedProcesses };
+  return { sessions: cachedSessions, processes: cachedProcesses, cliProcesses: cachedCLIProcesses };
 }
 
 export function getCachedAgents() {
-  return { sessions: cachedSessions, processes: cachedProcesses };
+  return { sessions: cachedSessions, processes: cachedProcesses, cliProcesses: cachedCLIProcesses };
 }

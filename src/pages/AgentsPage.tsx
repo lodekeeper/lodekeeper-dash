@@ -1,6 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDataStore } from "../stores/dataStore";
-import { Bot, Cpu, Clock, Hash, MessageSquare, ExternalLink, Timer } from "lucide-react";
+import { Bot, Cpu, Clock, Hash, MessageSquare, ExternalLink, Timer, Terminal } from "lucide-react";
+import { api } from "../api/client";
+
+interface CLIProcess {
+  pid: number;
+  command: string;
+  agent: string;
+  uptime: string;
+}
 
 const DISCORD_GUILDS: Record<string, string> = {
   "1197575814494035968": "593655374469660673",  // ChainSafe #lodestar-developer
@@ -49,9 +57,20 @@ export function AgentsPage() {
   const sessions = useDataStore((s) => s.sessions);
   const fetchAgents = useDataStore((s) => s.fetchAgents);
 
+  const [cliProcesses, setCLIProcesses] = useState<CLIProcess[]>([]);
+
   useEffect(() => {
     fetchAgents();
-    const interval = setInterval(fetchAgents, 15000);
+    // Also fetch CLI processes
+    api.get<{ cliProcesses: CLIProcess[] }>("/api/agents")
+      .then((d) => setCLIProcesses(d.cliProcesses || []))
+      .catch(() => {});
+    const interval = setInterval(() => {
+      fetchAgents();
+      api.get<{ cliProcesses: CLIProcess[] }>("/api/agents")
+        .then((d) => setCLIProcesses(d.cliProcesses || []))
+        .catch(() => {});
+    }, 15000);
     return () => clearInterval(interval);
   }, [fetchAgents]);
 
@@ -124,6 +143,32 @@ export function AgentsPage() {
             );
           })}
         </div>
+      )}
+
+      {/* CLI Processes */}
+      {cliProcesses.length > 0 && (
+        <>
+          <h2 className="text-lg font-semibold mt-6">Running CLI Agents</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cliProcesses.map((proc) => (
+              <div key={proc.pid} className="bg-surface-1 rounded-lg border border-surface-3 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm font-medium capitalize">{proc.agent} CLI</span>
+                  <span className="ml-auto text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">running</span>
+                </div>
+                <div className="text-xs text-gray-400 flex items-center gap-2">
+                  <span>PID {proc.pid}</span>
+                  <span>·</span>
+                  <span>Uptime: {proc.uptime}</span>
+                </div>
+                <div className="text-[10px] text-gray-600 font-mono truncate" title={proc.command}>
+                  {proc.command}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
