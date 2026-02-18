@@ -40,6 +40,17 @@ export interface GitHubNotification {
   unread: boolean;
 }
 
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  state: string;
+  url: string;
+  author: string;
+  labels: string[];
+  updatedAt: string;
+  comments: number;
+}
+
 export interface DiscordThread {
   id: string;
   name: string;
@@ -95,6 +106,7 @@ interface DataState {
   // GitHub
   prs: GitHubPR[];
   notifications: GitHubNotification[];
+  issues: GitHubIssue[];
   fetchGitHub: () => Promise<void>;
 
   // Discord
@@ -158,11 +170,12 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   // GitHub
   prs: [],
+  issues: [],
   notifications: [],
   fetchGitHub: async () => {
     try {
-      const data = await api.get<{ prs: GitHubPR[]; notifications: GitHubNotification[] }>("/api/tracking/github");
-      set({ prs: data.prs, notifications: data.notifications });
+      const data = await api.get<{ prs: GitHubPR[]; notifications: GitHubNotification[]; issues: GitHubIssue[] }>("/api/tracking/github");
+      set({ prs: data.prs, notifications: data.notifications, issues: data.issues || [] });
     } catch {
       // keep stale data
     }

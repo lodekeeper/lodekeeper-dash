@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useDataStore } from "../stores/dataStore";
-import { ExternalLink, GitPullRequest, MessageSquare, Bell, ChevronDown, ChevronRight } from "lucide-react";
+import { ExternalLink, GitPullRequest, MessageSquare, Bell, ChevronDown, ChevronRight, CircleDot } from "lucide-react";
 import { api } from "../api/client";
 
 type Tab = "github" | "discord";
@@ -158,6 +158,61 @@ function GitHubTab() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Issues */}
+      <IssuesSection />
+    </div>
+  );
+}
+
+function IssuesSection() {
+  const issues = useDataStore((s) => s.issues);
+
+  if (issues.length === 0) return null;
+
+  return (
+    <div>
+      <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+        <CircleDot className="w-4 h-4" />
+        Issues ({issues.length})
+      </h3>
+      <div className="bg-surface-1 rounded-lg border border-surface-3 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-surface-3 text-gray-500 text-xs">
+              <th className="text-left p-3 font-medium">#</th>
+              <th className="text-left p-3 font-medium">Title</th>
+              <th className="text-left p-3 font-medium">Author</th>
+              <th className="text-left p-3 font-medium">Comments</th>
+              <th className="text-left p-3 font-medium">Updated</th>
+              <th className="p-3 font-medium w-10"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {issues.map((issue) => (
+              <tr key={issue.number} className="border-b border-surface-3/50 hover:bg-surface-2 transition-colors">
+                <td className="p-3 text-accent font-mono">{issue.number}</td>
+                <td className="p-3">
+                  <span className="text-gray-200">{issue.title}</span>
+                  <div className="flex gap-1 mt-0.5">
+                    {issue.labels.slice(0, 3).map((l) => (
+                      <span key={l} className="text-[10px] px-1.5 py-0.5 rounded bg-surface-3 text-gray-400">{l}</span>
+                    ))}
+                  </div>
+                </td>
+                <td className="p-3 text-gray-400">{issue.author}</td>
+                <td className="p-3 text-gray-400">{issue.comments}</td>
+                <td className="p-3 text-xs text-gray-500">{timeAgo(new Date(issue.updatedAt))}</td>
+                <td className="p-3">
+                  <a href={issue.url} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-accent">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

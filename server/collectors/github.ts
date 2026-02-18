@@ -30,8 +30,20 @@ export interface GitHubNotification {
   unread: boolean;
 }
 
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  state: string;
+  url: string;
+  author: string;
+  labels: string[];
+  updatedAt: string;
+  comments: number;
+}
+
 let cachedPRs: GitHubPR[] = [];
 let cachedNotifications: GitHubNotification[] = [];
+let cachedIssues: GitHubIssue[] = [];
 let lastFetchTime = 0;
 
 async function runGh(args: string[]): Promise<string> {
@@ -160,6 +172,36 @@ export async function fetchNotifications(): Promise<GitHubNotification[]> {
   return notifications;
 }
 
+export async function fetchIssues(): Promise<GitHubIssue[]> {
+  // Issues I'm mentioned in or assigned to
+  const json = await runGh([
+    "issue", "list",
+    "--repo", "ChainSafe/lodestar",
+    "--search", "involves:lodekeeper",
+    "--state", "open",
+    "--json", "number,title,state,url,author,labels,updatedAt,comments",
+    "--limit", "15",
+  ]);
+
+  if (!json) return cachedIssues;
+
+  try {
+    const items = JSON.parse(json);
+    cachedIssues = items.map((item: any) => ({
+      number: item.number,
+      title: item.title,
+      state: item.state,
+      url: item.url,
+      author: item.author?.login || "unknown",
+      labels: (item.labels || []).map((l: any) => l.name),
+      updatedAt: item.updatedAt,
+      comments: item.comments || 0,
+    }));
+  } catch { /* keep cached */ }
+
+  return cachedIssues;
+}
+
 export async function collectGitHub() {
   const now = Date.now();
   if (now - lastFetchTime < 30000) {
@@ -167,14 +209,15 @@ export async function collectGitHub() {
   }
   lastFetchTime = now;
 
-  const [prs, notifications] = await Promise.all([
+  const [prs, notifications, issues] = await Promise.all([
     fetchPRs(),
     fetchNotifications(),
+    fetchIssues(),
   ]);
 
-  return { prs, notifications };
+  return { prs, notifications, issues };
 }
 
 export function getCachedGitHub() {
-  return { prs: cachedPRs, notifications: cachedNotifications };
+  return { prs: cachedPRs, notifications: cachedNotifications, issues: cachedIssues };
 }
