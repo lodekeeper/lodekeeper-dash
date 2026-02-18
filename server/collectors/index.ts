@@ -6,6 +6,12 @@ import { collectDiscordThreads } from "./discord.js";
 import { collectCronJobs } from "./cron.js";
 import { collectAgents } from "./agents.js";
 import { broadcast } from "../ws/hub.js";
+import { readJSON, writeJSON } from "../storage/store.js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execAsync = promisify(execFile);
+const NVM_NODE = "/home/openclaw/.nvm/versions/node/v22.22.0/bin";
 
 const GITHUB_INTERVAL = 60_000;   // 60s
 const DISCORD_INTERVAL = 120_000; // 2min
@@ -40,6 +46,38 @@ export function startCollectors() {
     const agents = await collectAgents();
     broadcast({ type: "agents", data: agents });
   }, AGENT_INTERVAL);
+
+  // Usage snapshots
+  setTimeout(recordUsageSnapshot, 10000);
+  setInterval(recordUsageSnapshot, USAGE_INTERVAL);
+}
+
+// Record daily usage snapshot every 10 minutes
+const USAGE_INTERVAL = 600_000;
+
+async function recordUsageSnapshot() {
+  try {
+    const { stdout } = await execAsync(
+      `${NVM_NODE}/openclaw`,
+      ["sessions", "--json"],
+      { timeout: 15000, env: { ...process.env, PATH: `${NVM_NODE}:${process.env.PATH}` } }
+    );
+    const data = JSON.parse(stdout);
+    const sessions = data.sessions || [];
+    const totalTokens = sessions.reduce((sum: number, s: any) => sum + (s.totalTokens || 0), 0);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const history = await readJSON<{ daily: Array<{ date: string; tokens: number; sessions: number }> }>("usage-history.json", { daily: [] });
+    const existing = history.daily.find((d: any) => d.date === today);
+    if (existing) {
+      existing.tokens = totalTokens;
+      existing.sessions = data.count || sessions.length;
+    } else {
+      history.daily.push({ date: today, tokens: totalTokens, sessions: data.count || sessions.length });
+    }
+    history.daily = history.daily.slice(-90);
+    await writeJSON("usage-history.json", history);
+  } catch { /* ignore */ }
 }
 
 async function runAll() {

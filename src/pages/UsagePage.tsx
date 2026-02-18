@@ -3,6 +3,7 @@ import { BarChart3, RefreshCw, Zap, Hash, Cpu, TrendingUp } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, Legend,
 } from "recharts";
 import { api } from "../api/client";
 
@@ -71,15 +72,26 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
+interface DailyUsage {
+  date: string;
+  tokens: number;
+  sessions: number;
+}
+
 export function UsagePage() {
   const [data, setData] = useState<SessionsData | null>(null);
+  const [history, setHistory] = useState<DailyUsage[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
-      const d = await api.get<SessionsData>("/api/status/sessions");
+      const [d, h] = await Promise.all([
+        api.get<SessionsData>("/api/status/sessions"),
+        api.get<{ daily: DailyUsage[] }>("/api/status/usage"),
+      ]);
       setData(d);
+      setHistory(h.daily || []);
     } catch {
       // ignore
     }
@@ -225,6 +237,24 @@ export function UsagePage() {
       {/* Full session table */}
       <div className="bg-surface-1 rounded-lg border border-surface-3 overflow-hidden">
         <div className="px-4 py-3 border-b border-surface-3">
+          {/* Usage Over Time */}
+          {history.length > 1 && (
+            <>
+              <h2 className="text-sm font-semibold mt-6 mb-3">Usage Over Time</h2>
+              <div className="bg-surface-1 rounded-lg border border-surface-3 p-4 mb-6">
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={history}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                    <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} tickFormatter={(v: number) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(0)}k` : String(v)} />
+                    <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: 8 }} labelStyle={{ color: "#9ca3af" }} formatter={(value: number) => [value.toLocaleString(), "Tokens"]} />
+                    <Line type="monotone" dataKey="tokens" stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
+
           <h2 className="text-sm font-semibold">All Sessions ({data.sessions.length})</h2>
         </div>
         <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
