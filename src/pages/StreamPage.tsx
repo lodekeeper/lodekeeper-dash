@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Terminal as TerminalIcon, Pause, Play, RefreshCw, Trash2, Radio, Clock, Cpu } from "lucide-react";
+import { Terminal as TerminalIcon, Pause, Play, RefreshCw, Trash2, Radio, Clock, Cpu, Search } from "lucide-react";
 import { onWsMessage, sendWsMessage } from "../api/ws";
 import { api } from "../api/client";
 
@@ -64,6 +64,8 @@ export function StreamPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [filter, setFilter] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
   const bufferRef = useRef<string[]>([]);
 
   // Initialize xterm.js
@@ -74,6 +76,7 @@ export function StreamPage() {
     async function initTerminal() {
       const { Terminal } = await import("@xterm/xterm");
       const { FitAddon } = await import("@xterm/addon-fit");
+      const { SearchAddon } = await import("@xterm/addon-search");
       await import("@xterm/xterm/css/xterm.css");
 
       if (!termRef.current) return;
@@ -102,7 +105,10 @@ export function StreamPage() {
       });
 
       fit = new FitAddon();
+      const search = new SearchAddon();
       term.loadAddon(fit);
+      term.loadAddon(search);
+      (window as any).__xtermSearch = search;
       term.open(termRef.current);
       fit.fit();
 
@@ -325,6 +331,19 @@ export function StreamPage() {
               {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
             </button>
             <button
+              onClick={() => {
+                setShowSearch((s) => !s);
+                if (showSearch) {
+                  (window as any).__xtermSearch?.clearDecorations();
+                  setSearchTerm("");
+                }
+              }}
+              className={`p-1.5 rounded transition-colors ${showSearch ? "bg-accent/20 text-accent" : "bg-surface-2 hover:bg-surface-3"}`}
+              title="Search"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+            <button
               onClick={clearTerminal}
               className="p-1.5 bg-surface-2 hover:bg-surface-3 rounded transition-colors"
               title="Clear"
@@ -339,6 +358,41 @@ export function StreamPage() {
             <span className="w-2 h-2 rounded-full bg-status-idle animate-pulse" />
             Streaming
             {paused && <span className="text-priority-normal ml-1">⏸ Paused</span>}
+          </div>
+        )}
+
+        {showSearch && (
+          <div className="flex items-center gap-2 bg-surface-1 border border-surface-3 rounded-lg px-3 py-1.5 mb-2">
+            <Search className="w-3.5 h-3.5 text-gray-500" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                if (e.target.value) {
+                  (window as any).__xtermSearch?.findNext(e.target.value);
+                } else {
+                  (window as any).__xtermSearch?.clearDecorations();
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (e.shiftKey) {
+                    (window as any).__xtermSearch?.findPrevious(searchTerm);
+                  } else {
+                    (window as any).__xtermSearch?.findNext(searchTerm);
+                  }
+                }
+                if (e.key === "Escape") {
+                  setShowSearch(false);
+                  (window as any).__xtermSearch?.clearDecorations();
+                  setSearchTerm("");
+                }
+              }}
+              placeholder="Search... (Enter = next, Shift+Enter = prev, Esc = close)"
+              className="flex-1 bg-transparent text-sm text-gray-200 focus:outline-none placeholder-gray-600"
+              autoFocus
+            />
           </div>
         )}
 
