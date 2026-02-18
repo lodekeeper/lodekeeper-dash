@@ -168,14 +168,31 @@ export async function getAgentStatus(): Promise<{
   status: string;
   currentTask: string | null;
 }> {
-  // Read from a status file that the agent updates
+  // 1. Check explicit status file (agent writes this during work)
   const statusFile = await readWorkspaceFile("memory/agent-status.json");
   if (statusFile) {
     try {
-      return JSON.parse(statusFile);
+      const data = JSON.parse(statusFile);
+      const updatedAt = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+      const ageMs = Date.now() - updatedAt;
+
+      // If status was updated recently (<5 min), trust it
+      if (ageMs < 5 * 60 * 1000) {
+        return { status: data.status, currentTask: data.currentTask };
+      }
+
+      // If status is stale (>5 min), check if heartbeat is still active
+      // Heartbeat runs every 1m, so if status file is >5m old the agent is likely idle
+      // but could just be doing quiet monitoring
+      if (data.status === "working" && ageMs > 10 * 60 * 1000) {
+        return { status: "idle", currentTask: null };
+      }
+
+      return { status: data.status, currentTask: data.currentTask };
     } catch {
       // fall through
     }
   }
+
   return { status: "idle", currentTask: null };
 }
