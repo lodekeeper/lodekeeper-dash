@@ -146,6 +146,46 @@ function cleanTitle(title: string): string {
   return title.replace(/\s*—\s*(DONE|MERGED)\s*$/, "").trim();
 }
 
+export async function writeBacklog(tasks: Task[]): Promise<void> {
+  const PRIORITY_EMOJI: Record<string, string> = { urgent: "🔴", normal: "🟡", low: "🟢" };
+
+  const active = tasks.filter((t) => t.status !== "done");
+  const done = tasks.filter((t) => t.status === "done");
+
+  let md = `# BACKLOG.md — Task Backlog
+
+**Rules:**
+1. **ALWAYS add new tasks here immediately** — even tiny ones, even if doing them right away
+2. Check this file at the start of every session, every heartbeat, and between tasks
+3. Mark tasks ✅ when done (move to Completed section periodically)
+4. Priority: 🔴 urgent (blocking someone) | 🟡 normal | 🟢 low/background
+5. Include source (who asked, where, when) so nothing is ambiguous
+
+---
+
+## Active Tasks
+
+`;
+
+  for (const task of active) {
+    const emoji = PRIORITY_EMOJI[task.priority] || "🟡";
+    md += `### ${emoji} ${task.title}\n`;
+    if (task.source) md += `- **Source:** ${task.source}\n`;
+    if (task.description) md += `- **Status:** ${task.description}\n`;
+    md += `\n`;
+  }
+
+  if (done.length > 0) {
+    md += `---\n\n## Completed\n\n`;
+    for (const task of done) {
+      md += `- ✅ ${task.title}\n`;
+    }
+  }
+
+  const filePath = path.join(WORKSPACE, "BACKLOG.md");
+  await fs.writeFile(filePath, md, "utf-8");
+}
+
 export async function parseHeartbeat(): Promise<{
   checks: string[];
   raw: string;

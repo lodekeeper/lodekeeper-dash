@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { readJSON, writeJSON } from "../storage/store.js";
-import { readWorkspaceFile, parseBacklog, type Task } from "../collectors/workspace.js";
+import { readWorkspaceFile, parseBacklog, writeBacklog, type Task } from "../collectors/workspace.js";
 import { broadcast } from "../ws/hub.js";
 import { nanoid } from "nanoid";
 
@@ -34,6 +34,13 @@ async function saveTasks(tasks: Task[]) {
     lastSyncedFromBacklog: new Date().toISOString(),
   });
   broadcast({ type: "tasks", data: tasks });
+
+  // Write back to BACKLOG.md
+  try {
+    await writeBacklog(tasks);
+  } catch (err) {
+    console.error("Failed to write BACKLOG.md:", err);
+  }
 }
 
 // GET /api/tasks
