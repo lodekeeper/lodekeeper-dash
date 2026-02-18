@@ -3,6 +3,7 @@
  */
 import type { WebSocketServer, WebSocket } from "ws";
 import jwt from "jsonwebtoken";
+import { spawn, type ChildProcess } from "node:child_process";
 
 interface AuthenticatedSocket extends WebSocket {
   userId?: string;
@@ -12,6 +13,77 @@ interface AuthenticatedSocket extends WebSocket {
 }
 
 const clients = new Set<AuthenticatedSocket>();
+
+// Active log tail processes per stream subscription
+const activeStreams = new Map<string, { proc: ChildProcess; refCount: number }>();
+
+function startLogStream(sessionId: string): ChildProcess | null {
+  // For "gateway-logs", tail the openclaw systemd journal
+  if (sessionId === "gateway-logs") {
+    const proc = spawn("journalctl", ["--user", "-u", "openclaw-gateway.service", "-f", "-n", "50", "-o", "cat"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return proc;
+  }
+  // For "dashboard-logs", tail the dashboard service
+  if (sessionId === "dashboard-logs") {
+    const proc = spawn("journalctl", ["--user", "-u", "lodekeeper-dash.service", "-f", "-n", "50", "-o", "cat"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return proc;
+  }
+  // For "system-logs", tail syslog
+  if (sessionId === "system-logs") {
+    const proc = spawn("journalctl", ["-f", "-n", "50", "-o", "cat"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return proc;
+  }
+  return null;
+}
+
+function subscribeToStream(sessionId: string, ws: AuthenticatedSocket) {
+  ws.streamSubscription = sessionId;
+
+  let stream = activeStreams.get(sessionId);
+  if (!stream) {
+    const proc = startLogStream(sessionId);
+    if (!proc) {
+      ws.send(JSON.stringify({ type: "stream:error", message: "Unknown stream: " + sessionId }));
+      return;
+    }
+
+    stream = { proc, refCount: 0 };
+    activeStreams.set(sessionId, stream);
+
+    proc.stdout?.on("data", (data: Buffer) => {
+      broadcastStream(sessionId, data.toString());
+    });
+    proc.stderr?.on("data", (data: Buffer) => {
+      broadcastStream(sessionId, data.toString());
+    });
+    proc.on("close", () => {
+      activeStreams.delete(sessionId);
+    });
+  }
+  stream.refCount++;
+  ws.send(JSON.stringify({ type: "stream:subscribed", sessionId }));
+}
+
+function unsubscribeFromStream(ws: AuthenticatedSocket) {
+  const sessionId = ws.streamSubscription;
+  if (!sessionId) return;
+  ws.streamSubscription = undefined;
+
+  const stream = activeStreams.get(sessionId);
+  if (stream) {
+    stream.refCount--;
+    if (stream.refCount <= 0) {
+      stream.proc.kill();
+      activeStreams.delete(sessionId);
+    }
+  }
+}
 
 export function setupWsHub(wss: WebSocketServer) {
   wss.on("connection", (ws: AuthenticatedSocket) => {
@@ -52,14 +124,14 @@ export function setupWsHub(wss: WebSocketServer) {
 
         // Subscribe to terminal stream
         if (msg.type === "stream:subscribe") {
-          ws.streamSubscription = msg.sessionId;
-          ws.send(JSON.stringify({ type: "stream:subscribed", sessionId: msg.sessionId }));
+          unsubscribeFromStream(ws); // Clean up any previous subscription
+          subscribeToStream(msg.sessionId, ws);
           return;
         }
 
         // Unsubscribe from stream
         if (msg.type === "stream:unsubscribe") {
-          ws.streamSubscription = undefined;
+          unsubscribeFromStream(ws);
           return;
         }
       } catch {
@@ -69,10 +141,12 @@ export function setupWsHub(wss: WebSocketServer) {
 
     ws.on("close", () => {
       clearTimeout(authTimeout);
+      unsubscribeFromStream(ws);
       clients.delete(ws);
     });
 
     ws.on("error", () => {
+      unsubscribeFromStream(ws);
       clients.delete(ws);
     });
   });

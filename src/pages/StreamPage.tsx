@@ -232,6 +232,30 @@ export function StreamPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
+          {/* Built-in log streams */}
+          <div>
+            <div className="px-3 py-1.5 text-[10px] font-medium uppercase text-gray-500 bg-surface-0/50">
+              Log Streams
+            </div>
+            {[
+              { key: "gateway-logs", label: "Gateway Logs", kind: "system" },
+              { key: "dashboard-logs", label: "Dashboard Logs", kind: "system" },
+            ].map((s) => (
+              <button
+                key={s.key}
+                onClick={() => connect(s.key)}
+                className={`w-full px-3 py-2 text-left border-l-2 transition-colors hover:bg-surface-2 ${
+                  selectedSession === s.key ? "border-accent bg-accent/10" : "border-transparent"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-gray-200">{s.label}</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/20 text-emerald-400">live</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
           {recent.length > 0 && (
             <div>
               <div className="px-3 py-1.5 text-[10px] font-medium uppercase text-gray-500 bg-surface-0/50">
