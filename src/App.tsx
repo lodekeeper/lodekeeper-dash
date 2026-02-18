@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
 import { useDataStore } from "./stores/dataStore";
@@ -12,6 +12,9 @@ import { TrackingPage } from "./pages/TrackingPage";
 import { AgentsPage } from "./pages/AgentsPage";
 import { JobsPage } from "./pages/JobsPage";
 import { StreamPage } from "./pages/StreamPage";
+
+// Lazy-load heavy pages (Recharts ~400KB)
+const UsagePage = lazy(() => import("./pages/UsagePage").then(m => ({ default: m.UsagePage })));
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
@@ -99,6 +102,7 @@ export function App() {
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/jobs" element={<JobsPage />} />
         <Route path="/stream" element={<StreamPage />} />
+        <Route path="/usage" element={<Suspense fallback={<div className="p-6 text-gray-500">Loading...</div>}><UsagePage /></Suspense>} />
       </Route>
     </Routes>
   );

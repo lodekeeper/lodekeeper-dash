@@ -6,6 +6,7 @@ import {
   Bot,
   Clock,
   Terminal,
+  BarChart3,
   LogOut,
   Star,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/jobs", icon: Clock, label: "Jobs" },
   { to: "/stream", icon: Terminal, label: "Stream" },
+  { to: "/usage", icon: BarChart3, label: "Usage" },
 ];
 
 export function Layout() {

@@ -148,4 +148,49 @@ router.post("/usage", async (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+const NVM_NODE = "/home/openclaw/.nvm/versions/node/v22.22.0/bin";
+
+// GET /api/status/sessions — all sessions with token breakdown
+router.get("/sessions", async (_req: Request, res: Response) => {
+  try {
+    const { stdout } = await exec(
+      `${NVM_NODE}/node`,
+      [`${NVM_NODE}/openclaw`, "sessions", "--json"],
+      { timeout: 15000, env: { ...process.env, PATH: `${NVM_NODE}:${process.env.PATH}` } }
+    );
+    const data = JSON.parse(stdout);
+    const sessions = (data.sessions || []).map((s: any) => ({
+      key: s.key,
+      kind: s.kind,
+      model: s.model,
+      ageMin: Math.round(s.ageMs / 60000),
+      totalTokens: s.totalTokens || 0,
+      inputTokens: s.inputTokens || 0,
+      outputTokens: s.outputTokens || 0,
+      contextTokens: s.contextTokens || 0,
+    }));
+
+    // Aggregate by kind
+    const byKind: Record<string, { tokens: number; count: number }> = {};
+    for (const s of sessions) {
+      const kind = s.kind || "unknown";
+      if (!byKind[kind]) byKind[kind] = { tokens: 0, count: 0 };
+      byKind[kind].tokens += s.totalTokens;
+      byKind[kind].count += 1;
+    }
+
+    // Grand totals
+    const totalTokens = sessions.reduce((sum: number, s: any) => sum + s.totalTokens, 0);
+
+    res.json({
+      sessions,
+      byKind,
+      totalTokens,
+      totalSessions: data.count,
+    });
+  } catch (err: any) {
+    res.json({ sessions: [], byKind: {}, totalTokens: 0, totalSessions: 0, error: err.message });
+  }
+});
+
 export { router as statusRouter };
