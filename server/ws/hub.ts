@@ -43,6 +43,7 @@ function startLogStream(sessionId: string): ChildProcess | null {
 }
 
 function subscribeToStream(sessionId: string, ws: AuthenticatedSocket) {
+  console.log(`[stream] Client subscribing to: ${sessionId}`);
   ws.streamSubscription = sessionId;
 
   let stream = activeStreams.get(sessionId);

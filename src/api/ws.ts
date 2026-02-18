@@ -30,6 +30,10 @@ export function connectWs() {
   socket.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data);
+      // Handle auth response
+      if (msg.type === "auth" && msg.ok) {
+        flushPending();
+      }
       for (const handler of handlers) {
         handler(msg);
       }
@@ -40,6 +44,7 @@ export function connectWs() {
 
   socket.onclose = () => {
     socket = null;
+    authenticated = false;
     // Reconnect after 3 seconds
     if (reconnectTimer) clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(connectWs, 3000);
@@ -64,8 +69,24 @@ export function onWsMessage(handler: MessageHandler) {
   };
 }
 
+let authenticated = false;
+let pendingMessages: unknown[] = [];
+
 export function sendWsMessage(msg: unknown) {
-  if (socket?.readyState === WebSocket.OPEN) {
+  if (socket?.readyState === WebSocket.OPEN && authenticated) {
     socket.send(JSON.stringify(msg));
+  } else {
+    pendingMessages.push(msg);
   }
+}
+
+// Called when auth succeeds to flush queued messages
+function flushPending() {
+  authenticated = true;
+  for (const msg of pendingMessages) {
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(msg));
+    }
+  }
+  pendingMessages = [];
 }
