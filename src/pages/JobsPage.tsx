@@ -155,17 +155,27 @@ export function JobsPage() {
         </div>
       </div>
 
-      {/* Heartbeat Checks */}
+      {/* Heartbeat */}
       <div>
         <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
           <Timer className="w-4 h-4" />
-          Heartbeat Checks ({heartbeatChecks.length})
+          Heartbeat
         </h3>
-        <div className="bg-surface-1 rounded-lg border border-surface-3 p-4">
-          {heartbeatChecks.length === 0 ? (
-            <p className="text-sm text-gray-500">No heartbeat checks configured</p>
-          ) : (
-            <div className="space-y-2">
+        <div className="bg-surface-1 rounded-lg border border-surface-3 p-4 space-y-4">
+          {/* Status bar */}
+          <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-status-idle animate-pulse" />
+              <span className="text-gray-300">Every 1 minute</span>
+            </div>
+            <div className="text-gray-500">
+              {heartbeatChecks.length} checks configured
+            </div>
+          </div>
+
+          {/* Checks list */}
+          {heartbeatChecks.length > 0 && (
+            <div className="space-y-1.5">
               {heartbeatChecks.map((check, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />

@@ -190,9 +190,11 @@ export async function writeBacklog(tasks: Task[]): Promise<void> {
 export async function parseHeartbeat(): Promise<{
   checks: string[];
   raw: string;
+  lastBeat: string | null;
+  interval: string | null;
 }> {
   const content = await readWorkspaceFile("HEARTBEAT.md");
-  if (!content) return { checks: [], raw: "" };
+  if (!content) return { checks: [], raw: "", lastBeat: null, interval: null };
 
   const checks: string[] = [];
   const lines = content.split("\n");
@@ -202,7 +204,16 @@ export async function parseHeartbeat(): Promise<{
     }
   }
 
-  return { checks, raw: content };
+  // Try to get last heartbeat time from agent status file
+  let lastBeat: string | null = null;
+  try {
+    const statusPath = path.join(WORKSPACE_ROOT, "memory", "agent-status.json");
+    const raw = await fs.readFile(statusPath, "utf-8");
+    const data = JSON.parse(raw);
+    if (data.updatedAt) lastBeat = data.updatedAt;
+  } catch { /* ignore */ }
+
+  return { checks, raw: content, lastBeat, interval: "1m" };
 }
 
 export async function getAgentStatus(): Promise<{
