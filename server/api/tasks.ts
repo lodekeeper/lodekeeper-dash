@@ -30,18 +30,20 @@ async function loadTasks(): Promise<Task[]> {
   return store.tasks;
 }
 
-async function saveTasks(tasks: Task[]) {
+async function saveTasks(tasks: Task[], writeBack = true) {
   await writeJSON("tasks.json", {
     tasks,
     lastSyncedFromBacklog: new Date().toISOString(),
   });
   broadcast({ type: "tasks", data: tasks });
 
-  // Write back to BACKLOG.md
-  try {
-    await writeBacklog(tasks);
-  } catch (err) {
-    console.error("Failed to write BACKLOG.md:", err);
+  // Only write back to BACKLOG.md on explicit user actions (not on sync/re-seed)
+  if (writeBack) {
+    try {
+      await writeBacklog(tasks);
+    } catch (err) {
+      console.error("Failed to write BACKLOG.md:", err);
+    }
   }
 }
 
@@ -121,7 +123,7 @@ router.post("/sync", async (_req: Request, res: Response) => {
   }
 
   const tasks = parseBacklog(content);
-  await saveTasks(tasks);
+  await saveTasks(tasks, false); // Don't write back to BACKLOG.md during sync
   res.json({ tasks, synced: true });
 });
 
