@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
@@ -73,14 +73,25 @@ async function main() {
   // Auth routes (public)
   app.use("/api/auth", authLimiter, authRouter);
 
+  // CSRF protection — require custom header on mutating requests
+  // SameSite=Strict cookies already prevent most CSRF, this adds defense-in-depth
+  const csrfProtect = (req: Request, res: Response, next: NextFunction) => {
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+    // Allow if custom header present (browsers won't add this on cross-origin form submits)
+    if (req.headers["x-requested-with"]) return next();
+    // Also allow if content-type is JSON (simple forms can't send JSON)
+    if (req.is("json")) return next();
+    res.status(403).json({ error: "CSRF protection: missing X-Requested-With header" });
+  };
+
   // Protected API routes
-  app.use("/api/tasks", verifyToken, apiLimiter, tasksRouter);
-  app.use("/api/tracking", verifyToken, apiLimiter, trackingRouter);
-  app.use("/api/agents", verifyToken, apiLimiter, agentsRouter);
-  app.use("/api/jobs", verifyToken, apiLimiter, jobsRouter);
-  app.use("/api/status", verifyToken, apiLimiter, statusRouter);
-  app.use("/api/stream", verifyToken, apiLimiter, streamRouter);
-  app.use("/api/usage", verifyToken, apiLimiter, usageRouter);
+  app.use("/api/tasks", verifyToken, csrfProtect, apiLimiter, tasksRouter);
+  app.use("/api/tracking", verifyToken, csrfProtect, apiLimiter, trackingRouter);
+  app.use("/api/agents", verifyToken, csrfProtect, apiLimiter, agentsRouter);
+  app.use("/api/jobs", verifyToken, csrfProtect, apiLimiter, jobsRouter);
+  app.use("/api/status", verifyToken, csrfProtect, apiLimiter, statusRouter);
+  app.use("/api/stream", verifyToken, csrfProtect, apiLimiter, streamRouter);
+  app.use("/api/usage", verifyToken, csrfProtect, apiLimiter, usageRouter);
 
   // WebSocket
   const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 64 * 1024 });
