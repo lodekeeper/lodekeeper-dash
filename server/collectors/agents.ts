@@ -31,7 +31,27 @@ export async function collectAgents(): Promise<{
   sessions: AgentSession[];
   processes: RunningProcess[];
 }> {
-  // For now, return cached data. The main session updates this via API.
+  try {
+    // Try to get sessions from openclaw CLI
+    const { stdout } = await exec("openclaw", ["sessions", "list", "--json"], {
+      timeout: 10000,
+    });
+    const data = JSON.parse(stdout);
+    if (Array.isArray(data)) {
+      cachedSessions = data.map((s: any) => ({
+        key: s.key || s.sessionKey || "unknown",
+        kind: s.kind || "main",
+        model: s.model || "unknown",
+        displayName: s.displayName || s.label || s.key || "Session",
+        totalTokens: s.totalTokens || s.tokens || 0,
+        updatedAt: s.updatedAt ? new Date(s.updatedAt).getTime() : Date.now(),
+        lastMessage: s.lastMessage,
+        channel: s.channel,
+      }));
+    }
+  } catch {
+    // CLI may not support --json; keep cached data
+  }
   return { sessions: cachedSessions, processes: cachedProcesses };
 }
 
