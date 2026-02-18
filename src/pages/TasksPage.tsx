@@ -46,8 +46,8 @@ function TaskCard({ task, overlay }: { task: Task; overlay?: boolean }) {
     <div
       ref={overlay ? undefined : setNodeRef}
       style={style}
-      className={`bg-surface-2 rounded-md border border-surface-3 p-3 cursor-grab active:cursor-grabbing ${
-        overlay ? "shadow-xl ring-1 ring-accent/30" : ""
+      className={`bg-surface-2 rounded-md border border-surface-3 p-3 cursor-grab active:cursor-grabbing transition-all duration-150 ${
+        overlay ? "shadow-xl ring-1 ring-accent/30 scale-[1.02]" : "hover:-translate-y-0.5 hover:shadow-md hover:border-surface-3/80"
       }`}
     >
       <div className="flex items-start gap-2">
@@ -99,7 +99,7 @@ function AddTaskModal({ onClose, onAdd }: { onClose: () => void; onAdd: (t: Part
   const [priority, setPriority] = useState<Task["priority"]>("normal");
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose} role="dialog" aria-modal="true" aria-label="Add task" onKeyDown={(e) => e.key === "Escape" && onClose()}>
       <div className="bg-surface-1 rounded-xl border border-surface-3 p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Add Task</h2>
