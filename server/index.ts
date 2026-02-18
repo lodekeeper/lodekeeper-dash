@@ -35,13 +35,19 @@ async function main() {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"], // Required by Tailwind CSS runtime
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'", "ws:", "wss:"],
           fontSrc: ["'self'"],
           objectSrc: ["'none'"],
           frameAncestors: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
         },
+      },
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
       },
     })
   );
@@ -73,8 +79,14 @@ async function main() {
   app.use("/api/status", verifyToken, apiLimiter, statusRouter);
 
   // WebSocket
-  const wss = new WebSocketServer({ server, path: "/ws" });
+  const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 64 * 1024 });
   setupWsHub(wss);
+
+  // Custom error handler — no stack traces in responses
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("Server error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  });
 
   // Serve static frontend in production
   const clientDist = path.join(__dirname, "../dist/client");

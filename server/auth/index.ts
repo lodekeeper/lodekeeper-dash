@@ -11,7 +11,10 @@ const router = Router();
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret === "change-me-to-a-random-64-byte-hex-string") {
-    throw new Error("JWT_SECRET not configured. Set it in .env");
+    throw new Error("JWT_SECRET not configured. Set it in .env (generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\")");
+  }
+  if (secret.length < 32) {
+    throw new Error("JWT_SECRET too weak. Must be at least 32 characters. Generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"");
   }
   return secret;
 }
@@ -27,9 +30,11 @@ function signToken(user: { id: string; username: string; role: string }): string
 
 function setTokenCookie(res: Response, token: string) {
   const expiry = Number(process.env.JWT_EXPIRY) || 604800;
+  // Secure=true by default; only disable explicitly for local dev
+  const isSecure = process.env.COOKIE_INSECURE !== "true";
   res.cookie("token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "strict",
     maxAge: expiry * 1000,
     path: "/",
