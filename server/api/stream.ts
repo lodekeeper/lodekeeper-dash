@@ -13,7 +13,7 @@ interface SessionInfo {
   key: string;
   kind: string;
   model: string;
-  ageMinutes: number;
+  ageMin: number;
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
@@ -56,7 +56,7 @@ router.get("/sessions", async (_req: Request, res: Response) => {
       key: s.key,
       kind: s.kind || "unknown",
       model: s.model || "unknown",
-      ageMinutes: Math.round((s.ageMs || 0) / 60000),
+      ageMin: Math.round((s.ageMs || 0) / 60000),
       totalTokens: s.totalTokens || 0,
       inputTokens: s.inputTokens || 0,
       outputTokens: s.outputTokens || 0,

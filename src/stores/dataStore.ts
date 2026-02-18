@@ -129,8 +129,10 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
   createTask: async (task) => {
-    const data = await api.post<{ task: Task }>("/api/tasks", task);
-    set((s) => ({ tasks: [...s.tasks, data.task] }));
+    await api.post<{ task: Task }>("/api/tasks", task);
+    // Fetch canonical list instead of optimistic add (prevents brief duplicates)
+    const data = await api.get<{ tasks: Task[] }>("/api/tasks");
+    set({ tasks: data.tasks });
   },
   updateTask: async (id, updates) => {
     const data = await api.patch<{ task: Task }>(`/api/tasks/${id}`, updates);

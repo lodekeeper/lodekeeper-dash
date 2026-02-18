@@ -29,6 +29,9 @@ function TaskSummaryCard({ tasks }: { tasks: Task[] }) {
 
 function StatusCard() {
   const status = useDataStore((s) => s.status);
+  const tasks = useDataStore((s) => s.tasks);
+  const inProgress = tasks.filter((t) => t.status === "in_progress");
+  const currentWork = status?.currentTask || (inProgress.length > 0 ? inProgress.map((t) => t.title).join(" · ") : "Nothing active");
 
   return (
     <div className="bg-surface-1 rounded-lg border border-surface-3 p-4 col-span-full">
@@ -42,7 +45,7 @@ function StatusCard() {
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Zap className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-200 truncate max-w-[300px]">{status?.currentTask || "Nothing active"}</span>
+              <span className="text-gray-200 truncate max-w-[400px]">{currentWork}</span>
             </div>
             {status?.uptime != null && (
               <div className="flex items-center gap-2 text-sm">
