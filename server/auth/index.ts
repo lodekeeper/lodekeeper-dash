@@ -8,6 +8,24 @@ import { nanoid } from "nanoid";
 
 const router = Router();
 
+// Simple in-memory token blacklist (cleared on restart — acceptable for single-server dashboard)
+const revokedTokens = new Set<string>();
+const REVOKE_CLEANUP_INTERVAL = 60 * 60 * 1000; // 1h
+
+// Periodically clean expired entries
+setInterval(() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return;
+  for (const token of revokedTokens) {
+    try {
+      jwt.verify(token, secret);
+    } catch {
+      // Token expired naturally, remove from blacklist
+      revokedTokens.delete(token);
+    }
+  }
+}, REVOKE_CLEANUP_INTERVAL);
+
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret === "change-me-to-a-random-64-byte-hex-string") {
@@ -108,8 +126,12 @@ router.post("/login", async (req: Request, res: Response) => {
   res.json({ ok: true, user: { id: user.id, username: user.username, role: user.role } });
 });
 
-// Logout
-router.post("/logout", (_req: Request, res: Response) => {
+// Logout — invalidate token + clear cookie
+router.post("/logout", (req: Request, res: Response) => {
+  const token = req.cookies?.token;
+  if (token) {
+    revokedTokens.add(token);
+  }
   res.clearCookie("token", { path: "/" });
   res.json({ ok: true });
 });
@@ -239,6 +261,13 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.token;
   if (!token) {
     res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  // Check revocation list
+  if (revokedTokens.has(token)) {
+    res.clearCookie("token", { path: "/" });
+    res.status(401).json({ error: "Token revoked" });
     return;
   }
 
