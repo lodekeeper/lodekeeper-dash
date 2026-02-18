@@ -527,6 +527,7 @@ export function TasksPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ ok: boolean; count?: number } | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<Task["priority"] | "all">("all");
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -603,6 +604,24 @@ export function TasksPage() {
         </div>
       </div>
 
+      {/* Priority filter */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-gray-500">Filter:</span>
+        {(["all", "urgent", "normal", "low"] as const).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPriorityFilter(p)}
+            className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+              priorityFilter === p
+                ? p === "all" ? "bg-accent/20 text-accent" : `${PRIORITY_BADGE[p as keyof typeof PRIORITY_BADGE]}`
+                : "bg-surface-2 text-gray-500 hover:bg-surface-3"
+            }`}
+          >
+            {p === "all" ? "All" : p === "urgent" ? "🔴 Urgent" : p === "normal" ? "🟡 Normal" : "🟢 Low"}
+          </button>
+        ))}
+      </div>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -610,14 +629,17 @@ export function TasksPage() {
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-4 flex-1 overflow-x-auto pb-4">
-          {COLUMNS.map((col) => (
-            <Column
-              key={col.id}
-              column={col}
-              tasks={tasks.filter((t) => t.status === col.id)}
-              onTaskClick={setDetailTask}
-            />
-          ))}
+          {COLUMNS.map((col) => {
+            const filtered = tasks.filter((t) => t.status === col.id && (priorityFilter === "all" || t.priority === priorityFilter));
+            return (
+              <Column
+                key={col.id}
+                column={col}
+                tasks={filtered}
+                onTaskClick={setDetailTask}
+              />
+            );
+          })}
         </div>
 
         <DragOverlay>{activeTask && <TaskCard task={activeTask} overlay />}</DragOverlay>
