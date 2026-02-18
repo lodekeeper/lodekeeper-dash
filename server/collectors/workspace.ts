@@ -1,6 +1,7 @@
 /**
  * Workspace collector — reads BACKLOG.md, HEARTBEAT.md, and other workspace files.
  * Parses markdown into structured task data.
+ * Includes automatic BACKLOG.md → tasks.json sync when the file changes externally.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -185,6 +186,7 @@ export async function writeBacklog(tasks: Task[]): Promise<void> {
 
   const filePath = path.join(WORKSPACE, "BACKLOG.md");
   await fs.writeFile(filePath, md, "utf-8");
+  markDashboardWrite();
 }
 
 export async function parseHeartbeat(): Promise<{
@@ -207,13 +209,128 @@ export async function parseHeartbeat(): Promise<{
   // Try to get last heartbeat time from agent status file
   let lastBeat: string | null = null;
   try {
-    const statusPath = path.join(WORKSPACE_ROOT, "memory", "agent-status.json");
+    const statusPath = path.join(WORKSPACE, "memory", "agent-status.json");
     const raw = await fs.readFile(statusPath, "utf-8");
     const data = JSON.parse(raw);
     if (data.updatedAt) lastBeat = data.updatedAt;
   } catch { /* ignore */ }
 
   return { checks, raw: content, lastBeat, interval: "1m" };
+}
+
+// ── BACKLOG.md ↔ tasks.json Auto-Sync ───────────────────────────
+// Tracks BACKLOG.md mtime to detect external edits (by the agent)
+// and automatically re-syncs tasks.json so the dashboard stays current.
+
+let _lastBacklogMtimeMs = 0;
+let _lastDashboardWriteMs = 0;
+
+/** Call this whenever the dashboard writes BACKLOG.md to suppress re-sync */
+export function markDashboardWrite(): void {
+  _lastDashboardWriteMs = Date.now();
+}
+
+/**
+ * Check if BACKLOG.md was modified externally since last sync.
+ * If so, re-parse it and merge into tasks.json.
+ * Returns true if tasks were updated.
+ */
+export async function syncBacklogToTasks(): Promise<boolean> {
+  const backlogPath = path.join(WORKSPACE, "BACKLOG.md");
+  try {
+    const stat = await fs.stat(backlogPath);
+    const mtimeMs = stat.mtimeMs;
+
+    // First run — just record the mtime
+    if (_lastBacklogMtimeMs === 0) {
+      _lastBacklogMtimeMs = mtimeMs;
+      return false;
+    }
+
+    // No change since last check
+    if (mtimeMs <= _lastBacklogMtimeMs) {
+      return false;
+    }
+
+    // Changed! But was it the dashboard that wrote it?
+    // Give 5s grace window for dashboard writes
+    if (_lastDashboardWriteMs > 0 && (mtimeMs - _lastDashboardWriteMs) < 5000) {
+      _lastBacklogMtimeMs = mtimeMs;
+      return false;
+    }
+
+    // External change detected — re-parse and merge
+    _lastBacklogMtimeMs = mtimeMs;
+    const content = await fs.readFile(backlogPath, "utf-8");
+    const backlogTasks = parseBacklog(content);
+
+    // Load current tasks.json
+    const { readJSON, writeJSON } = await import("../storage/store.js");
+    const store = await readJSON<{ tasks: Task[]; lastSyncedFromBacklog: string }>(
+      "tasks.json", { tasks: [], lastSyncedFromBacklog: "" }
+    );
+    const existingTasks = store.tasks;
+
+    // Build lookup of existing tasks by ID for merging
+    const existingById = new Map(existingTasks.map(t => [t.id, t]));
+    const backlogById = new Map(backlogTasks.map(t => [t.id, t]));
+
+    // Merge strategy:
+    // 1. All tasks from BACKLOG.md take priority (status, priority, title)
+    // 2. Dashboard-only tasks (nanoid IDs not in BACKLOG.md) are preserved
+    // 3. Tasks in tasks.json but NOT in BACKLOG.md and NOT dashboard-created → removed
+    const merged: Task[] = [];
+
+    // Add all BACKLOG.md tasks, preserving dashboard-specific fields (attachments)
+    for (const bt of backlogTasks) {
+      const existing = existingById.get(bt.id);
+      if (existing) {
+        // Merge: take BACKLOG.md status/priority/title, keep dashboard metadata
+        merged.push({
+          ...existing,
+          title: bt.title,
+          priority: bt.priority,
+          status: bt.status,
+          source: bt.source || existing.source,
+          description: bt.description || existing.description,
+          links: bt.links || existing.links,
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        merged.push(bt);
+      }
+    }
+
+    // Preserve dashboard-created tasks (those with nanoid IDs not in BACKLOG.md)
+    for (const et of existingTasks) {
+      if (!backlogById.has(et.id) && isDashboardCreated(et.id)) {
+        merged.push(et);
+      }
+    }
+
+    // Write merged tasks (WITHOUT writing back to BACKLOG.md — that would be circular)
+    await writeJSON("tasks.json", {
+      tasks: merged,
+      lastSyncedFromBacklog: new Date().toISOString(),
+    });
+
+    const { broadcast } = await import("../ws/hub.js");
+    broadcast({ type: "tasks", data: merged });
+
+    console.log(`🔄 BACKLOG.md changed externally — synced ${backlogTasks.length} tasks → tasks.json (${merged.length} total)`);
+    return true;
+  } catch (err) {
+    console.error("BACKLOG sync error:", err);
+    return false;
+  }
+}
+
+/** Dashboard-created tasks use nanoid (alphanumeric, 12 chars). Slug IDs have hyphens. */
+function isDashboardCreated(id: string): boolean {
+  // nanoid(12) produces [A-Za-z0-9_-]{12} — but slug IDs also contain hyphens
+  // The key difference: slug IDs are derived from task titles and always contain letters
+  // Dashboard IDs from nanoid are random. We check: no hyphens = likely nanoid
+  return !id.includes("-") || id.length === 12;
 }
 
 export async function getAgentStatus(): Promise<{

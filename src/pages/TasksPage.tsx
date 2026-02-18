@@ -216,8 +216,8 @@ function TaskDetailModal({
                       className="max-w-[200px] max-h-[200px] object-contain rounded-lg border border-surface-3 hover:border-accent transition-colors"
                     />
                   </a>
-                  );}
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

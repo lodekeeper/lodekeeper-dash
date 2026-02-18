@@ -5,6 +5,7 @@ import { collectGitHub } from "./github.js";
 import { collectDiscordThreads } from "./discord.js";
 import { collectCronJobs } from "./cron.js";
 import { collectAgents } from "./agents.js";
+import { syncBacklogToTasks } from "./workspace.js";
 import { broadcast } from "../ws/hub.js";
 import { readJSON, writeJSON } from "../storage/store.js";
 import { execFile } from "node:child_process";
@@ -17,6 +18,7 @@ const GITHUB_INTERVAL = 60_000;   // 60s
 const DISCORD_INTERVAL = 120_000; // 2min
 const CRON_INTERVAL = 120_000;    // 2min
 const AGENT_INTERVAL = 15_000;    // 15s
+const BACKLOG_SYNC_INTERVAL = 10_000; // 10s — fast sync for BACKLOG.md changes
 
 export function startCollectors() {
   console.log("📊 Starting data collectors...");
@@ -46,6 +48,15 @@ export function startCollectors() {
     const agents = await collectAgents();
     broadcast({ type: "agents", data: agents });
   }, AGENT_INTERVAL);
+
+  // BACKLOG.md → tasks.json auto-sync (detects external edits)
+  setInterval(async () => {
+    try {
+      await syncBacklogToTasks();
+    } catch (err) {
+      console.error("BACKLOG sync error:", err);
+    }
+  }, BACKLOG_SYNC_INTERVAL);
 
   // Usage snapshots
   setTimeout(recordUsageSnapshot, 10000);
