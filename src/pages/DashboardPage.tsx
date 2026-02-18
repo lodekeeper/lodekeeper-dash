@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useDataStore, type Task } from "../stores/dataStore";
 import { StatusBadge } from "../components/StatusBadge";
-import { Activity, GitPullRequest, MessageSquare, Cpu, Clock, Zap } from "lucide-react";
+import { Activity, GitPullRequest, MessageSquare, Cpu, Clock, Zap, BarChart3 } from "lucide-react";
 
 function TaskSummaryCard({ tasks }: { tasks: Task[] }) {
   const counts = {
@@ -50,9 +50,30 @@ function StatusCard() {
                 <span className="text-gray-300">{formatUptime(status.uptime)}</span>
               </div>
             )}
+            {status?.tokenUsageToday != null && status.tokenUsageToday > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <BarChart3 className="w-4 h-4 text-gray-500" />
+                <span className="text-gray-300">{(status.tokenUsageToday / 1000).toFixed(1)}k tokens</span>
+              </div>
+            )}
           </div>
         </div>
-        <span className="text-xs text-zinc-500">Updated just now</span>
+        <div className="flex items-center gap-3">
+          {status?.contextUsage != null && (
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-2 bg-surface-2 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    status.contextUsage > 80 ? "bg-priority-urgent" : status.contextUsage > 50 ? "bg-priority-normal" : "bg-status-idle"
+                  }`}
+                  style={{ width: `${status.contextUsage}%` }}
+                />
+              </div>
+              <span className="text-xs text-gray-500">{status.contextUsage}% ctx</span>
+            </div>
+          )}
+          <span className="text-xs text-zinc-500">Updated just now</span>
+        </div>
       </div>
     </div>
   );
