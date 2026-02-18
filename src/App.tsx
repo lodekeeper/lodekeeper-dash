@@ -50,6 +50,38 @@ export function App() {
     }
   }, [user, initWs]);
 
+  // Auto-refresh data every 30 seconds when authenticated
+  const fetchStatus = useDataStore((s) => s.fetchStatus);
+  const fetchTasks = useDataStore((s) => s.fetchTasks);
+  const fetchGitHub = useDataStore((s) => s.fetchGitHub);
+  const fetchDiscord = useDataStore((s) => s.fetchDiscord);
+  const fetchAgents = useDataStore((s) => s.fetchAgents);
+  const fetchJobs = useDataStore((s) => s.fetchJobs);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Initial fetch
+    fetchStatus();
+    fetchTasks();
+    fetchGitHub();
+    fetchDiscord();
+    fetchAgents();
+    fetchJobs();
+
+    // Poll every 30s
+    const interval = setInterval(() => {
+      fetchStatus();
+      fetchTasks();
+      fetchGitHub();
+      fetchDiscord();
+      fetchAgents();
+      fetchJobs();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [user, fetchStatus, fetchTasks, fetchGitHub, fetchDiscord, fetchAgents, fetchJobs]);
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
