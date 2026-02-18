@@ -31,29 +31,28 @@ function StatusCard() {
   const status = useDataStore((s) => s.status);
 
   return (
-    <div className="bg-surface-1 rounded-lg border border-surface-3 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-gray-400">Agent Status</h3>
-        <StatusBadge status={status?.agentStatus || "idle"} />
-      </div>
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-sm">
-          <Cpu className="w-4 h-4 text-gray-500" />
-          <span className="text-gray-400">Model:</span>
-          <span>{status?.model || "—"}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Zap className="w-4 h-4 text-gray-500" />
-          <span className="text-gray-400">Current:</span>
-          <span className="truncate">{status?.currentTask || "Nothing active"}</span>
-        </div>
-        {status?.uptime != null && (
-          <div className="flex items-center gap-2 text-sm">
-            <Clock className="w-4 h-4 text-gray-500" />
-            <span className="text-gray-400">Uptime:</span>
-            <span>{formatUptime(status.uptime)}</span>
+    <div className="bg-surface-1 rounded-lg border border-surface-3 p-4 col-span-full">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <StatusBadge status={status?.agentStatus || "idle"} />
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 text-sm">
+              <Cpu className="w-4 h-4 text-gray-500" />
+              <span className="text-gray-200">{status?.model || "—"}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Zap className="w-4 h-4 text-gray-500" />
+              <span className="text-gray-200 truncate max-w-[300px]">{status?.currentTask || "Nothing active"}</span>
+            </div>
+            {status?.uptime != null && (
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-4 h-4 text-gray-500" />
+                <span className="text-gray-300">{formatUptime(status.uptime)}</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+        <span className="text-xs text-zinc-500">Updated just now</span>
       </div>
     </div>
   );
@@ -82,7 +81,12 @@ function PRSummaryCard() {
             <span className="truncate text-gray-300">{pr.title}</span>
           </a>
         ))}
-        {prs.length === 0 && <p className="text-sm text-gray-500">No open PRs</p>}
+        {prs.length === 0 && (
+          <div className="text-center py-2">
+            <p className="text-sm text-gray-500">No open PRs 🎉</p>
+            <a href="/tracking" className="text-xs text-accent hover:text-accent-hover">View tracking →</a>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -115,7 +119,12 @@ function ThreadSummaryCard() {
             <span className="truncate text-gray-300">{t.name}</span>
           </a>
         ))}
-        {threads.length === 0 && <p className="text-sm text-gray-500">No tracked threads</p>}
+        {threads.length === 0 && (
+          <div className="text-center py-2">
+            <p className="text-sm text-gray-500">No tracked threads</p>
+            <a href="/tracking" className="text-xs text-accent hover:text-accent-hover">View tracking →</a>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -139,7 +148,12 @@ function SessionsCard() {
             <span className="ml-auto text-xs text-gray-500">{(s.totalTokens / 1000).toFixed(1)}k tok</span>
           </div>
         ))}
-        {sessions.length === 0 && <p className="text-sm text-gray-500">No active sessions</p>}
+        {sessions.length === 0 && (
+          <div className="text-center py-2">
+            <p className="text-sm text-gray-500">No active sessions</p>
+            <a href="/agents" className="text-xs text-accent hover:text-accent-hover">View agents →</a>
+          </div>
+        )}
       </div>
     </div>
   );

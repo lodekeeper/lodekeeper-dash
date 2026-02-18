@@ -160,6 +160,7 @@ export function TasksPage() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ ok: boolean; count?: number } | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -193,8 +194,15 @@ export function TasksPage() {
 
   const handleSync = async () => {
     setSyncing(true);
+    setSyncResult(null);
     try {
       await syncTasks();
+      const count = useDataStore.getState().tasks.length;
+      setSyncResult({ ok: true, count });
+      setTimeout(() => setSyncResult(null), 2500);
+    } catch {
+      setSyncResult({ ok: false });
+      setTimeout(() => setSyncResult(null), 3000);
     } finally {
       setSyncing(false);
     }
@@ -208,10 +216,16 @@ export function TasksPage() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-2 hover:bg-surface-3 rounded-lg text-sm text-gray-300 transition-colors disabled:opacity-50"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 ${
+              syncResult?.ok
+                ? "bg-status-idle/20 text-status-idle"
+                : syncResult?.ok === false
+                  ? "bg-priority-urgent/20 text-priority-urgent"
+                  : "bg-surface-2 hover:bg-surface-3 text-gray-300"
+            }`}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-            Sync
+            {syncing ? "Syncing…" : syncResult?.ok ? `Synced ${syncResult.count} tasks ✓` : syncResult?.ok === false ? "Sync failed · Retry" : "Sync"}
           </button>
           <button
             onClick={() => setShowAdd(true)}

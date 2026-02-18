@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
 import { useDataStore } from "./stores/dataStore";
 import { Layout } from "./components/Layout";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -35,6 +36,8 @@ export function App() {
   const checkAuth = useAuthStore((s) => s.checkAuth);
   const initWs = useDataStore((s) => s.initWs);
   const user = useAuthStore((s) => s.user);
+
+  useKeyboardShortcuts();
 
   useEffect(() => {
     checkAuth();
