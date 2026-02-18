@@ -13,6 +13,7 @@ import { trackingRouter } from "./api/tracking.js";
 import { agentsRouter } from "./api/agents.js";
 import { jobsRouter } from "./api/jobs.js";
 import { statusRouter } from "./api/status.js";
+import { streamRouter } from "./api/stream.js";
 import { setupWsHub } from "./ws/hub.js";
 import { ensureDataDir, loadConfig } from "./storage/store.js";
 import { startCollectors } from "./collectors/index.js";
@@ -77,6 +78,7 @@ async function main() {
   app.use("/api/agents", verifyToken, apiLimiter, agentsRouter);
   app.use("/api/jobs", verifyToken, apiLimiter, jobsRouter);
   app.use("/api/status", verifyToken, apiLimiter, statusRouter);
+  app.use("/api/stream", verifyToken, apiLimiter, streamRouter);
 
   // WebSocket
   const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 64 * 1024 });
