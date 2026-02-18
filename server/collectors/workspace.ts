@@ -56,7 +56,7 @@ export function parseBacklog(content: string): Task[] {
         id: slugify(title),
         title: cleanTitle(title),
         priority: isDone ? "low" : priority,
-        status: isDone ? "done" : "in_progress",
+        status: isDone ? "done" : "todo",
         description: "",
         links: [],
         createdAt: new Date().toISOString(),
