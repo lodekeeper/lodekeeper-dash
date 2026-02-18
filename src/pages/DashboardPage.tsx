@@ -5,8 +5,7 @@ import { Activity, GitPullRequest, MessageSquare, Cpu, Clock, Zap, BarChart3 } f
 
 function TaskSummaryCard({ tasks }: { tasks: Task[] }) {
   const counts = {
-    backlog: tasks.filter((t) => t.status === "backlog").length,
-    todo: tasks.filter((t) => t.status === "todo").length,
+    todo: tasks.filter((t) => t.status === "todo" || t.status === "backlog").length,
     in_progress: tasks.filter((t) => t.status === "in_progress").length,
     review: tasks.filter((t) => t.status === "review").length,
     done: tasks.filter((t) => t.status === "done").length,
@@ -15,7 +14,7 @@ function TaskSummaryCard({ tasks }: { tasks: Task[] }) {
   return (
     <div className="bg-surface-1 rounded-lg border border-surface-3 p-4">
       <h3 className="text-sm font-medium text-gray-400 mb-3">Tasks</h3>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         {Object.entries(counts).map(([key, count]) => (
           <div key={key} className="text-center">
             <div className="text-2xl font-bold">{count}</div>

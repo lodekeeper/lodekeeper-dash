@@ -16,7 +16,6 @@ import { useDataStore, type Task } from "../stores/dataStore";
 import { Plus, RefreshCw, GripVertical, X } from "lucide-react";
 
 const COLUMNS: { id: Task["status"]; label: string; color: string }[] = [
-  { id: "backlog", label: "Backlog", color: "border-gray-600" },
   { id: "todo", label: "Todo", color: "border-blue-500" },
   { id: "in_progress", label: "In Progress", color: "border-status-working" },
   { id: "review", label: "Review", color: "border-purple-500" },

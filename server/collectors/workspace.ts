@@ -11,7 +11,7 @@ export interface Task {
   id: string;
   title: string;
   priority: "urgent" | "normal" | "low";
-  status: "backlog" | "todo" | "in_progress" | "review" | "done";
+  status: "todo" | "in_progress" | "review" | "done";
   source?: string;
   description?: string;
   links?: string[];
