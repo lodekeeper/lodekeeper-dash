@@ -1,13 +1,13 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { getCachedAgents, updateSessionsCache, updateProcessesCache } from "../collectors/agents.js";
+import { getCachedAgents, collectAgents } from "../collectors/agents.js";
 import { broadcast } from "../ws/hub.js";
 
 const router = Router();
 
-// GET /api/agents
+// GET /api/agents — fetch fresh data
 router.get("/", async (_req: Request, res: Response) => {
-  const data = getCachedAgents();
+  const data = await collectAgents();
   res.json(data);
 });
 
