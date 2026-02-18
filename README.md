@@ -1,79 +1,110 @@
-# Lodekeeper Dashboard 🌟
+# 🌟 Lodekeeper Dashboard
 
-A self-hosted monitoring dashboard for the Lodekeeper AI agent — providing real-time visibility into tasks, GitHub PRs, Discord threads, running agents, cron jobs, and live work streams.
+Self-hosted monitoring dashboard for [Lodekeeper](https://github.com/lodekeeper) — an AI contributor to [Lodestar](https://github.com/ChainSafe/lodestar).
 
 ## Features
 
-- **📋 Kanban Task Board** — Drag-and-drop task management, syncs with BACKLOG.md
-- **🔗 GitHub & Discord Tracking** — Open PRs, notifications, tracked Discord threads
-- **🤖 Agent Monitoring** — Running sessions, sub-agents, token usage
-- **⏰ Periodic Jobs** — Cron jobs and heartbeat checks overview
-- **📺 Live Stream** — Real-time terminal output from background processes
-- **🟢 Status Indicator** — Agent busy/idle/working state at a glance
-- **🔒 Secure Auth** — JWT + bcrypt, invite system, rate limiting, security headers
+- **Task Board** — Kanban board with drag-and-drop, synced with BACKLOG.md
+- **GitHub Tracking** — Open PRs, CI status, notifications
+- **Discord Tracking** — Monitored threads with status indicators
+- **Agent Monitor** — Active sessions, running sub-agents
+- **Periodic Jobs** — Cron jobs and heartbeat overview
+- **Status Indicator** — Live idle/working/busy status with context usage bar
+- **Live Terminal** — Stream output from background processes (WIP)
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Clone
+git clone https://github.com/lodekeeper/lodekeeper-dash.git
+cd lodekeeper-dash
+
+# Install
 pnpm install
 
-# Copy and configure environment
+# Configure
 cp .env.example .env
-# Edit .env: set JWT_SECRET (generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+# Edit .env — set JWT_SECRET (generate with: openssl rand -hex 64)
 
-# Development (frontend + backend hot reload)
-pnpm dev
-
-# Production build
+# Build frontend
 pnpm build
+
+# Start
 pnpm start
+# → http://localhost:7777
 ```
 
-Open `http://localhost:7777` — first visit triggers admin account setup.
+First visit opens a setup wizard to create your admin account.
+
+## Development
+
+```bash
+# Run with hot reload
+pnpm dev
+```
+
+## Systemd Service
+
+```bash
+# Create service file
+cat > ~/.config/systemd/user/lodekeeper-dash.service << 'EOF'
+[Unit]
+Description=Lodekeeper Dashboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/lodekeeper-dash
+Environment=PATH=/path/to/.nvm/versions/node/v22/bin:/usr/bin
+ExecStart=/path/to/.nvm/versions/node/v22/bin/npx tsx server/index.ts
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+
+# Enable + start
+systemctl --user daemon-reload
+systemctl --user enable --now lodekeeper-dash.service
+```
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT` | No | `7777` | Server port |
+| `HOST` | No | `0.0.0.0` | Bind address |
+| `JWT_SECRET` | **Yes** | — | Secret for JWT signing (64+ hex chars) |
+| `WORKSPACE_PATH` | No | `~/.openclaw/workspace` | Path to OpenClaw workspace |
 
 ## Architecture
 
 ```
-Browser (React SPA)  ←→  Express Server (port 7777)  ←→  Data Sources
-     ↕ WebSocket              ↕ REST API
-  Real-time updates      BACKLOG.md, gh CLI, Discord, OpenClaw
+Browser (React SPA)
+    ↕ REST + WebSocket
+Express Server (port 7777)
+    ├─ Auth (JWT + bcrypt, httpOnly cookies)
+    ├─ REST API (/api/tasks, /api/tracking, /api/agents, /api/jobs, /api/status)
+    ├─ WebSocket (real-time task sync, terminal streams)
+    ├─ Data Collectors (GitHub via gh CLI, Discord threads, OpenClaw sessions, cron jobs)
+    └─ Storage (JSON files in data/, reads workspace markdown)
 ```
 
-- **Backend**: Node.js + Express + TypeScript
-- **Frontend**: React 19 + Vite + Tailwind CSS
-- **Real-time**: WebSocket for live updates and terminal streaming
-- **Auth**: JWT (httpOnly cookies) + bcrypt password hashing
-- **Storage**: JSON files (no database required)
+## Tech Stack
+
+- **Frontend:** React 19, Vite 6, Tailwind CSS, @dnd-kit, Recharts, Zustand
+- **Backend:** Express 5, TypeScript, ws, bcryptjs, jsonwebtoken, helmet
+- **Auth:** JWT in httpOnly cookies, bcrypt passwords, setup wizard, invite system
 
 ## Security
 
-- No default credentials — first-run setup wizard
-- Passwords hashed with bcrypt (cost factor 12)
-- JWT tokens in httpOnly, Secure, SameSite=Strict cookies
-- Helmet.js security headers (CSP, HSTS, X-Frame-Options)
-- Rate limiting on auth (10/min) and API (200/min) endpoints
-- Invite system for sharing with trusted users
-- All secrets via environment variables (never committed)
-
-## Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | 7777 | Server port |
-| `HOST` | 0.0.0.0 | Bind address |
-| `JWT_SECRET` | *(required)* | 64-byte hex secret for JWT signing |
-| `JWT_EXPIRY` | 604800 | Token expiry in seconds (7 days) |
-| `WORKSPACE_PATH` | /home/openclaw/.openclaw/workspace | OpenClaw workspace path |
-
-## Data Sources
-
-The dashboard polls and aggregates data from:
-- **BACKLOG.md** — Parsed into structured tasks
-- **GitHub** — PRs and notifications via `gh` CLI
-- **Discord** — Tracked threads from `memory/discord-threads.json`
-- **OpenClaw** — Sessions, cron jobs, processes
-- **Agent status** — Written by the agent to `memory/agent-status.json`
+- No default credentials — setup wizard required
+- bcrypt-hashed passwords (cost 12)
+- JWT in httpOnly/SameSite=Strict cookies
+- Helmet.js security headers
+- Rate limiting on auth endpoints
+- No private data in repo (secrets in .env, data/ gitignored)
 
 ## License
 
