@@ -44,9 +44,11 @@ export interface DiscordThread {
   id: string;
   name: string;
   channel: string;
+  channelId?: string;
   guildName: string;
   url: string;
   status: "active" | "quiet" | "archived";
+  lastActivity?: string;
   notes?: string;
 }
 

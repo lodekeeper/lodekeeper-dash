@@ -5,6 +5,14 @@ import { api } from "../api/client";
 
 type Tab = "github" | "discord";
 
+function timeAgo(date: Date): string {
+  const min = Math.round((Date.now() - date.getTime()) / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  if (min < 1440) return `${Math.round(min / 60)}h ago`;
+  return `${Math.round(min / 1440)}d ago`;
+}
+
 interface PRComment {
   id: number;
   author: string;
@@ -182,6 +190,7 @@ function DiscordTab() {
                 <th className="text-left p-3 font-medium">Status</th>
                 <th className="text-left p-3 font-medium">Thread</th>
                 <th className="text-left p-3 font-medium">Server</th>
+                <th className="text-left p-3 font-medium">Last Activity</th>
                 <th className="p-3 font-medium w-10"></th>
               </tr>
             </thead>
@@ -208,6 +217,9 @@ function DiscordTab() {
                     </td>
                     <td className="p-3 text-gray-200">{t.name}</td>
                     <td className="p-3 text-gray-400">{t.guildName}</td>
+                    <td className="p-3 text-xs text-gray-500">
+                      {t.lastActivity ? timeAgo(new Date(t.lastActivity)) : "—"}
+                    </td>
                     <td className="p-3" onClick={(e) => e.stopPropagation()}>
                       <a href={t.url} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-accent">
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -216,7 +228,7 @@ function DiscordTab() {
                   </tr>
                   {expandedThread === t.id && (
                     <tr key={`exp-${t.id}`}>
-                      <td colSpan={5} className="px-3 pb-3">
+                      <td colSpan={6} className="px-3 pb-3">
                         <div className="bg-surface-0 rounded-lg border border-surface-3 p-3 space-y-2">
                           <div className="flex items-center gap-4 text-xs">
                             <span className="text-gray-500">ID: <span className="font-mono text-gray-400">{t.id}</span></span>

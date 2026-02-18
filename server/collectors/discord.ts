@@ -7,12 +7,27 @@ export interface DiscordThread {
   id: string;
   name: string;
   channel: string;
+  channelId?: string;
   guild: string;
   guildName: string;
   url: string;
   status: "active" | "quiet" | "archived";
   lastCheckedMsg?: string;
+  lastActivity?: string; // ISO timestamp from snowflake
   notes?: string;
+}
+
+// Discord snowflake epoch: 2015-01-01T00:00:00.000Z
+const DISCORD_EPOCH = 1420070400000n;
+
+function snowflakeToDate(snowflake: string): string | undefined {
+  try {
+    const id = BigInt(snowflake);
+    const timestamp = Number((id >> 22n) + DISCORD_EPOCH);
+    return new Date(timestamp).toISOString();
+  } catch {
+    return undefined;
+  }
 }
 
 const CHAINSAFE_GUILD = "593655374469660673";
@@ -40,6 +55,7 @@ export async function collectDiscordThreads(): Promise<DiscordThread[]> {
           url: `https://discord.com/channels/${CHAINSAFE_GUILD}/${t.id}`,
           status: t.status || "active",
           lastCheckedMsg: t.lastCheckedMessageId,
+          lastActivity: t.lastCheckedMessageId ? snowflakeToDate(t.lastCheckedMessageId) : undefined,
           notes: t.notes,
         });
       }
@@ -58,6 +74,7 @@ export async function collectDiscordThreads(): Promise<DiscordThread[]> {
           url: `https://discord.com/channels/${guild}/${t.id}`,
           status: t.status || "active",
           lastCheckedMsg: t.lastCheckedMessageId,
+          lastActivity: t.lastCheckedMessageId ? snowflakeToDate(t.lastCheckedMessageId) : undefined,
           notes: t.notes,
         });
       }
@@ -78,6 +95,7 @@ export async function collectDiscordThreads(): Promise<DiscordThread[]> {
             url: `https://discord.com/channels/${guild}/${c.id}`,
             status: "active",
             lastCheckedMsg: c.lastCheckedMessageId,
+            lastActivity: c.lastCheckedMessageId ? snowflakeToDate(c.lastCheckedMessageId) : undefined,
           });
         }
       }
