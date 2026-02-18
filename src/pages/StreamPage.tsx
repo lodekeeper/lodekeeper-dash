@@ -58,6 +58,8 @@ export function StreamPage() {
   const termRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitRef = useRef<any>(null);
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -67,6 +69,7 @@ export function StreamPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const bufferRef = useRef<string[]>([]);
+  const tabBuffersRef = useRef<Map<string, string[]>>(new Map());
 
   // Initialize xterm.js
   useEffect(() => {
@@ -139,14 +142,22 @@ export function StreamPage() {
     const unsub = onWsMessage((msg) => {
       if (msg.type === "stream:data") {
         const data = msg.data as { sessionId: string; data: string };
-        if (paused) {
-          bufferRef.current.push(data.data);
-        } else {
-          xtermRef.current?.write(data.data);
+        // Buffer for all open tabs
+        const buf = tabBuffersRef.current.get(data.sessionId);
+        if (buf) buf.push(data.data);
+        // Only write to terminal if this is the active tab
+        if (data.sessionId === activeTab) {
+          if (paused) {
+            bufferRef.current.push(data.data);
+          } else {
+            xtermRef.current?.write(data.data);
+          }
         }
       }
       if (msg.type === "stream:subscribed") {
-        xtermRef.current?.writeln(`\x1b[32m✓ Connected to ${(msg as any).sessionId}\x1b[0m\n`);
+        if ((msg as any).sessionId === activeTab) {
+          xtermRef.current?.writeln(`\x1b[32m✓ Connected to ${(msg as any).sessionId}\x1b[0m\n`);
+        }
       }
     });
     return unsub;
@@ -181,21 +192,61 @@ export function StreamPage() {
   }, [fetchSessions]);
 
   const connect = useCallback((sessionKey: string) => {
-    if (connected && selectedSession) {
-      sendWsMessage({ type: "stream:unsubscribe" });
+    // If tab already open, just switch to it
+    if (openTabs.includes(sessionKey)) {
+      switchTab(sessionKey);
+      return;
     }
+
+    // Open new tab
+    setOpenTabs((prev) => [...prev, sessionKey]);
+    tabBuffersRef.current.set(sessionKey, []);
+    setActiveTab(sessionKey);
     setSelectedSession(sessionKey);
     setConnected(true);
     xtermRef.current?.clear();
     xtermRef.current?.writeln(`\x1b[90mConnecting to ${sessionKey}...\x1b[0m`);
     sendWsMessage({ type: "stream:subscribe", sessionId: sessionKey });
-  }, [connected, selectedSession]);
+  }, [openTabs]);
+
+  const switchTab = useCallback((sessionKey: string) => {
+    if (sessionKey === activeTab) return;
+    setActiveTab(sessionKey);
+    setSelectedSession(sessionKey);
+    // Replay buffered output for this tab
+    xtermRef.current?.clear();
+    const buf = tabBuffersRef.current.get(sessionKey) || [];
+    for (const line of buf) {
+      xtermRef.current?.write(line);
+    }
+  }, [activeTab]);
+
+  const closeTab = useCallback((sessionKey: string) => {
+    sendWsMessage({ type: "stream:unsubscribe", sessionId: sessionKey });
+    tabBuffersRef.current.delete(sessionKey);
+    setOpenTabs((prev) => {
+      const next = prev.filter((t) => t !== sessionKey);
+      if (activeTab === sessionKey) {
+        const newActive = next.length > 0 ? next[next.length - 1] : null;
+        setActiveTab(newActive);
+        setSelectedSession(newActive);
+        if (newActive) {
+          switchTab(newActive);
+        } else {
+          setConnected(false);
+          xtermRef.current?.clear();
+          xtermRef.current?.writeln("\x1b[90mSelect a session from the sidebar to connect.\x1b[0m");
+        }
+      }
+      return next;
+    });
+  }, [activeTab, switchTab]);
 
   const disconnect = useCallback(() => {
-    sendWsMessage({ type: "stream:unsubscribe" });
-    setConnected(false);
-    xtermRef.current?.writeln("\n\x1b[31m✗ Disconnected\x1b[0m");
-  }, []);
+    if (activeTab) {
+      closeTab(activeTab);
+    }
+  }, [activeTab, closeTab]);
 
   const clearTerminal = useCallback(() => {
     xtermRef.current?.clear();
@@ -358,6 +409,29 @@ export function StreamPage() {
             <span className="w-2 h-2 rounded-full bg-status-idle animate-pulse" />
             Streaming
             {paused && <span className="text-priority-normal ml-1">⏸ Paused</span>}
+          </div>
+        )}
+
+        {/* Tab bar */}
+        {openTabs.length > 0 && (
+          <div className="flex items-center gap-0.5 mb-2 overflow-x-auto">
+            {openTabs.map((tab) => (
+              <div
+                key={tab}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs cursor-pointer transition-colors ${
+                  activeTab === tab ? "bg-[#0f1117] text-gray-200 border border-b-0 border-surface-3" : "bg-surface-2 text-gray-500 hover:text-gray-300"
+                }`}
+                onClick={() => switchTab(tab)}
+              >
+                <span className="truncate max-w-[120px]">{sessionLabel(tab)}</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); closeTab(tab); }}
+                  className="ml-1 text-gray-600 hover:text-gray-300 text-[10px]"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
