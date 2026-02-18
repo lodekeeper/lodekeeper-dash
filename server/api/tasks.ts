@@ -167,7 +167,8 @@ router.post("/upload", async (req: Request, res: Response) => {
     await fs.mkdir(uploadsDir, { recursive: true });
     await fs.writeFile(path.join(uploadsDir, filename), body);
 
-    res.json({ url: `/api/tasks/uploads/${filename}`, filename });
+    const diskPath = path.join(uploadsDir, filename);
+    res.json({ url: `/api/tasks/uploads/${filename}`, filename, diskPath });
   } catch (err: any) {
     res.status(500).json({ error: "Upload failed: " + err.message });
   }

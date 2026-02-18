@@ -206,14 +206,17 @@ function TaskDetailModal({
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Attachments</label>
               <div className="flex flex-wrap gap-2">
-                {task.attachments.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                {task.attachments.map((ref, i) => {
+                  const displayUrl = ref.split("|")[0];
+                  return (
+                  <a key={i} href={displayUrl} target="_blank" rel="noopener noreferrer">
                     <img
-                      src={url}
+                      src={displayUrl}
                       alt={`Attachment ${i + 1}`}
                       className="max-w-[200px] max-h-[200px] object-contain rounded-lg border border-surface-3 hover:border-accent transition-colors"
                     />
                   </a>
+                  );}
                 ))}
               </div>
             </div>
@@ -358,7 +361,9 @@ function AddTaskModal({ onClose, onAdd }: { onClose: () => void; onAdd: (t: Part
       });
       const data = await res.json();
       if (data.url) {
-        setAttachments((prev) => [...prev, data.url]);
+        // Store "url|diskPath" so agent can find the file
+        const ref = data.diskPath ? `${data.url}|${data.diskPath}` : data.url;
+        setAttachments((prev) => [...prev, ref]);
       }
     } catch (err) {
       console.error("Upload failed:", err);
@@ -463,10 +468,10 @@ function AddTaskModal({ onClose, onAdd }: { onClose: () => void; onAdd: (t: Part
             />
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {attachments.map((url, i) => (
+                {attachments.map((ref, i) => (
                   <div key={i} className="relative group">
                     <img
-                      src={url}
+                      src={ref.split("|")[0]}
                       alt={`Attachment ${i + 1}`}
                       className="w-20 h-20 object-cover rounded-lg border border-surface-3"
                     />
