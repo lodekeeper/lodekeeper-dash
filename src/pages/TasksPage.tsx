@@ -29,7 +29,15 @@ const PRIORITY_BADGE: Record<string, string> = {
   low: "bg-priority-low/20 text-priority-low",
 };
 
-function TaskCard({ task, overlay }: { task: Task; overlay?: boolean }) {
+function TaskCard({
+  task,
+  overlay,
+  onClick,
+}: {
+  task: Task;
+  overlay?: boolean;
+  onClick?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: task,
@@ -46,12 +54,20 @@ function TaskCard({ task, overlay }: { task: Task; overlay?: boolean }) {
     <div
       ref={overlay ? undefined : setNodeRef}
       style={style}
-      className={`bg-surface-2 rounded-md border border-surface-3 p-3 cursor-grab active:cursor-grabbing transition-all duration-150 ${
-        overlay ? "shadow-xl ring-1 ring-accent/30 scale-[1.02]" : "hover:-translate-y-0.5 hover:shadow-md hover:border-surface-3/80"
+      onClick={overlay ? undefined : onClick}
+      className={`bg-surface-2 rounded-md border border-surface-3 p-3 transition-all duration-150 ${
+        overlay
+          ? "shadow-xl ring-1 ring-accent/30 scale-[1.02] cursor-grabbing"
+          : "hover:-translate-y-0.5 hover:shadow-md hover:border-surface-3/80 cursor-pointer"
       }`}
     >
       <div className="flex items-start gap-2">
-        <button {...listeners} {...attributes} className="mt-0.5 text-gray-600 hover:text-gray-400">
+        <button
+          {...listeners}
+          {...attributes}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-0.5 text-gray-600 hover:text-gray-400 cursor-grab active:cursor-grabbing"
+        >
           <GripVertical className="w-3.5 h-3.5" />
         </button>
         <div className="flex-1 min-w-0">
@@ -71,7 +87,219 @@ function TaskCard({ task, overlay }: { task: Task; overlay?: boolean }) {
   );
 }
 
-function Column({ column, tasks }: { column: (typeof COLUMNS)[0]; tasks: Task[] }) {
+function TaskDetailModal({
+  task,
+  onClose,
+  onUpdate,
+  onDelete,
+}: {
+  task: Task;
+  onClose: () => void;
+  onUpdate: (id: string, updates: Partial<Task>) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description || "");
+  const [priority, setPriority] = useState(task.priority);
+  const [status, setStatus] = useState(task.status);
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const hasChanges = title !== task.title || description !== (task.description || "") || priority !== task.priority || status !== task.status;
+
+  const handleSave = () => {
+    onUpdate(task.id, { title, description: description || undefined, priority, status });
+    setEditing(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose} role="dialog" aria-modal="true" aria-label="Task detail" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+      <div className="bg-surface-1 rounded-xl border border-surface-3 p-5 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          {editing ? (
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-lg font-semibold bg-surface-2 border border-surface-3 rounded px-2 py-1 w-full mr-2 focus:outline-none focus:border-accent"
+              autoFocus
+            />
+          ) : (
+            <h2 className="text-lg font-semibold pr-4">{task.title}</h2>
+          )}
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 flex-shrink-0">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Status + Priority */}
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 mb-1 block">Status</label>
+              {editing ? (
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as Task["status"])}
+                  className="w-full px-2 py-1.5 bg-surface-2 border border-surface-3 rounded text-sm focus:outline-none focus:border-accent"
+                >
+                  {COLUMNS.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-sm capitalize">{status.replace("_", " ")}</span>
+              )}
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 mb-1 block">Priority</label>
+              {editing ? (
+                <div className="flex gap-1.5">
+                  {(["urgent", "normal", "low"] as const).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPriority(p)}
+                      className={`px-2 py-1 rounded text-xs ${
+                        priority === p ? "bg-accent text-white" : "bg-surface-2 text-gray-400 hover:bg-surface-3"
+                      }`}
+                    >
+                      {p === "urgent" ? "🔴" : p === "normal" ? "🟡" : "🟢"}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${PRIORITY_BADGE[task.priority]}`}>
+                  {task.priority}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Source */}
+          {task.source && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Source</label>
+              <p className="text-sm text-gray-300">{task.source}</p>
+            </div>
+          )}
+
+          {/* Description */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Description</label>
+            {editing ? (
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                className="w-full px-3 py-2 bg-surface-2 border border-surface-3 rounded-lg text-sm focus:outline-none focus:border-accent resize-y"
+                placeholder="Add description..."
+              />
+            ) : (
+              <p className="text-sm text-gray-300 whitespace-pre-wrap">
+                {task.description || <span className="text-gray-600 italic">No description</span>}
+              </p>
+            )}
+          </div>
+
+          {/* Links */}
+          {task.links && task.links.length > 0 && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Links</label>
+              <div className="space-y-1">
+                {task.links.map((link, i) => (
+                  <a
+                    key={i}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-accent hover:text-accent-hover block truncate"
+                  >
+                    {link}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Timestamps */}
+          <div className="flex gap-4 text-xs text-gray-600">
+            <span>Created: {new Date(task.createdAt).toLocaleDateString()}</span>
+            <span>Updated: {new Date(task.updatedAt).toLocaleDateString()}</span>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between pt-2 border-t border-surface-3">
+            {editing ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSave}
+                  disabled={!hasChanges}
+                  className="px-4 py-1.5 bg-accent hover:bg-accent-hover rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setTitle(task.title);
+                    setDescription(task.description || "");
+                    setPriority(task.priority);
+                    setStatus(task.status);
+                    setEditing(false);
+                  }}
+                  className="px-4 py-1.5 bg-surface-2 hover:bg-surface-3 rounded-lg text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setEditing(true)}
+                className="px-4 py-1.5 bg-surface-2 hover:bg-surface-3 rounded-lg text-sm transition-colors"
+              >
+                Edit
+              </button>
+            )}
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-priority-urgent">Delete task?</span>
+                <button
+                  onClick={() => { onDelete(task.id); onClose(); }}
+                  className="px-3 py-1 bg-priority-urgent/20 text-priority-urgent hover:bg-priority-urgent/30 rounded text-xs"
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="px-3 py-1 bg-surface-2 hover:bg-surface-3 rounded text-xs"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-xs text-gray-600 hover:text-priority-urgent transition-colors"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Column({
+  column,
+  tasks,
+  onTaskClick,
+}: {
+  column: (typeof COLUMNS)[0];
+  tasks: Task[];
+  onTaskClick: (task: Task) => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
@@ -87,7 +315,7 @@ function Column({ column, tasks }: { column: (typeof COLUMNS)[0]; tasks: Task[] 
       </div>
       <div className="p-2 pt-0 space-y-2 min-h-[100px]">
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
+          <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
         ))}
       </div>
     </div>
@@ -96,6 +324,7 @@ function Column({ column, tasks }: { column: (typeof COLUMNS)[0]; tasks: Task[] 
 
 function AddTaskModal({ onClose, onAdd }: { onClose: () => void; onAdd: (t: Partial<Task>) => void }) {
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Task["priority"]>("normal");
 
   return (
@@ -111,7 +340,7 @@ function AddTaskModal({ onClose, onAdd }: { onClose: () => void; onAdd: (t: Part
           onSubmit={(e) => {
             e.preventDefault();
             if (title.trim()) {
-              onAdd({ title: title.trim(), priority, status: "todo" });
+              onAdd({ title: title.trim(), description: description.trim() || undefined, priority, status: "todo" });
               onClose();
             }
           }}
@@ -124,6 +353,13 @@ function AddTaskModal({ onClose, onAdd }: { onClose: () => void; onAdd: (t: Part
             placeholder="Task title..."
             className="w-full px-3 py-2 bg-surface-2 border border-surface-3 rounded-lg text-sm focus:outline-none focus:border-accent"
             autoFocus
+          />
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description (optional)..."
+            rows={3}
+            className="w-full px-3 py-2 bg-surface-2 border border-surface-3 rounded-lg text-sm focus:outline-none focus:border-accent resize-y"
           />
           <div className="flex gap-2">
             {(["urgent", "normal", "low"] as const).map((p) => (
@@ -155,9 +391,12 @@ export function TasksPage() {
   const tasks = useDataStore((s) => s.tasks);
   const fetchTasks = useDataStore((s) => s.fetchTasks);
   const createTask = useDataStore((s) => s.createTask);
+  const updateTask = useDataStore((s) => s.updateTask);
+  const deleteTask = useDataStore((s) => s.deleteTask);
   const moveTask = useDataStore((s) => s.moveTask);
   const syncTasks = useDataStore((s) => s.syncTasks);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ ok: boolean; count?: number } | null>(null);
@@ -245,7 +484,12 @@ export function TasksPage() {
       >
         <div className="flex gap-4 flex-1 overflow-x-auto pb-4">
           {COLUMNS.map((col) => (
-            <Column key={col.id} column={col} tasks={tasks.filter((t) => t.status === col.id)} />
+            <Column
+              key={col.id}
+              column={col}
+              tasks={tasks.filter((t) => t.status === col.id)}
+              onTaskClick={setDetailTask}
+            />
           ))}
         </div>
 
@@ -253,6 +497,20 @@ export function TasksPage() {
       </DndContext>
 
       {showAdd && <AddTaskModal onClose={() => setShowAdd(false)} onAdd={createTask} />}
+      {detailTask && (
+        <TaskDetailModal
+          task={detailTask}
+          onClose={() => setDetailTask(null)}
+          onUpdate={(id, updates) => {
+            updateTask(id, updates);
+            setDetailTask(null);
+          }}
+          onDelete={(id) => {
+            deleteTask(id);
+            setDetailTask(null);
+          }}
+        />
+      )}
     </div>
   );
 }

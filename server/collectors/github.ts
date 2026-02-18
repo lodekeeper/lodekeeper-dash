@@ -96,6 +96,21 @@ export async function fetchPRs(): Promise<GitHubPR[]> {
     }
   }
 
+  // Fetch CI status for each PR
+  for (const pr of prs) {
+    try {
+      const ciJson = await runGh([
+        "pr", "checks", String(pr.number),
+        "--repo", "ChainSafe/lodestar",
+        "--json", "name,state,conclusion",
+        "--jq", '[.[] | .conclusion] | if all(. == "SUCCESS") then "pass" elif any(. == "FAILURE") then "fail" elif any(. == "") then "pending" else "unknown" end',
+      ]);
+      pr.ciStatus = ciJson.trim() || "unknown";
+    } catch {
+      pr.ciStatus = "unknown";
+    }
+  }
+
   cachedPRs = prs;
   return prs;
 }
@@ -103,16 +118,15 @@ export async function fetchPRs(): Promise<GitHubPR[]> {
 export async function fetchNotifications(): Promise<GitHubNotification[]> {
   const json = await runGh([
     "api", "notifications",
-    "--jq", '.[] | {id: .id, reason: .reason, title: .subject.title, type: .subject.type, url: .subject.url, updated: .updated_at, unread: .unread}',
+    "--jq", '[.[] | {id: .id, reason: .reason, title: .subject.title, type: .subject.type, url: .subject.url, updated: .updated_at, unread: .unread}]',
   ]);
 
   if (!json) return cachedNotifications;
 
   const notifications: GitHubNotification[] = [];
-  for (const line of json.split("\n")) {
-    if (!line.trim()) continue;
-    try {
-      const item = JSON.parse(line);
+  try {
+    const items = JSON.parse(json);
+    for (const item of items) {
       notifications.push({
         id: item.id,
         reason: item.reason,
@@ -122,8 +136,23 @@ export async function fetchNotifications(): Promise<GitHubNotification[]> {
         updatedAt: item.updated,
         unread: item.unread,
       });
-    } catch {
-      // skip
+    }
+  } catch {
+    // Fallback: try line-by-line
+    for (const line of json.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const item = JSON.parse(line);
+        notifications.push({
+          id: item.id,
+          reason: item.reason,
+          title: item.title,
+          type: item.type,
+          url: item.url || "",
+          updatedAt: item.updated,
+          unread: item.unread,
+        });
+      } catch { /* skip */ }
     }
   }
 

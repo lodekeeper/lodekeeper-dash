@@ -26,6 +26,7 @@ function GitHubTab() {
                   <th className="text-left p-3 font-medium">#</th>
                   <th className="text-left p-3 font-medium">Title</th>
                   <th className="text-left p-3 font-medium">Author</th>
+                  <th className="text-left p-3 font-medium">CI</th>
                   <th className="text-left p-3 font-medium">Review</th>
                   <th className="text-left p-3 font-medium">Labels</th>
                   <th className="p-3 font-medium w-10"></th>
@@ -42,6 +43,9 @@ function GitHubTab() {
                       )}
                     </td>
                     <td className="p-3 text-gray-400">{pr.author}</td>
+                    <td className="p-3">
+                      <CIBadge status={(pr as any).ciStatus} />
+                    </td>
                     <td className="p-3">
                       <ReviewBadge decision={pr.reviewDecision} />
                     </td>
@@ -151,6 +155,25 @@ function DiscordTab() {
         )}
       </div>
     </div>
+  );
+}
+
+function CIBadge({ status }: { status?: string }) {
+  if (!status || status === "unknown") return <span className="text-xs text-gray-600">—</span>;
+  const colors: Record<string, string> = {
+    pass: "bg-status-idle/20 text-status-idle",
+    fail: "bg-priority-urgent/20 text-priority-urgent",
+    pending: "bg-priority-normal/20 text-priority-normal",
+  };
+  const labels: Record<string, string> = {
+    pass: "✓ Pass",
+    fail: "✗ Fail",
+    pending: "⏳ Running",
+  };
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${colors[status] || "bg-surface-3 text-gray-400"}`}>
+      {labels[status] || status}
+    </span>
   );
 }
 

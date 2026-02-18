@@ -25,6 +25,7 @@ export interface GitHubPR {
   updatedAt: string;
   labels: string[];
   reviewDecision: string;
+  ciStatus: string;
   isDraft: boolean;
 }
 
