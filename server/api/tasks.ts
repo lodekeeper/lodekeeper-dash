@@ -1,9 +1,11 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { readJSON, writeJSON } from "../storage/store.js";
+import { readJSON, writeJSON, getDataDir } from "../storage/store.js";
 import { readWorkspaceFile, parseBacklog, writeBacklog, type Task } from "../collectors/workspace.js";
 import { broadcast } from "../ws/hub.js";
 import { nanoid } from "nanoid";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 const router = Router();
 
@@ -84,7 +86,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
   }
 
   const updates = req.body;
-  const allowed = ["title", "priority", "status", "description", "source"];
+  const allowed = ["title", "priority", "status", "description", "source", "attachments"];
   for (const key of allowed) {
     if (updates[key] !== undefined) {
       (tasks[idx] as any)[key] = updates[key];
@@ -142,6 +144,59 @@ router.post("/reorder", async (req: Request, res: Response) => {
 
   await saveTasks(tasks);
   res.json({ ok: true, tasks });
+});
+
+// POST /api/tasks/upload — upload an image attachment
+router.post("/upload", async (req: Request, res: Response) => {
+  try {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(chunk as Buffer);
+    }
+    const body = Buffer.concat(chunks);
+
+    // Get content type from header
+    const contentType = req.headers["content-type"] || "image/png";
+    const ext = contentType.includes("png") ? "png" : contentType.includes("gif") ? "gif" : contentType.includes("webp") ? "webp" : "jpg";
+    const filename = `${nanoid(16)}.${ext}`;
+
+    const uploadsDir = path.join(getDataDir(), "uploads");
+    await fs.mkdir(uploadsDir, { recursive: true });
+    await fs.writeFile(path.join(uploadsDir, filename), body);
+
+    res.json({ url: `/api/tasks/uploads/${filename}`, filename });
+  } catch (err: any) {
+    res.status(500).json({ error: "Upload failed: " + err.message });
+  }
+});
+
+// GET /api/tasks/uploads/:filename — serve uploaded images
+router.get("/uploads/:filename", async (req: Request, res: Response) => {
+  try {
+    const filename = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, ""); // sanitize
+    const filePath = path.join(getDataDir(), "uploads", filename);
+    const stat = await fs.stat(filePath);
+    if (!stat.isFile()) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const ext = path.extname(filename).toLowerCase();
+    const types: Record<string, string> = {
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+    };
+
+    res.setHeader("Content-Type", types[ext] || "application/octet-stream");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    const data = await fs.readFile(filePath);
+    res.send(data);
+  } catch {
+    res.status(404).json({ error: "Not found" });
+  }
 });
 
 export { router as tasksRouter };

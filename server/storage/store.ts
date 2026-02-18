@@ -9,6 +9,10 @@ export async function ensureDataDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
 }
 
+export function getDataDir(): string {
+  return DATA_DIR;
+}
+
 export function dataPath(filename: string): string {
   return path.join(DATA_DIR, filename);
 }

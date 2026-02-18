@@ -15,6 +15,7 @@ export interface Task {
   source?: string;
   description?: string;
   links?: string[];
+  attachments?: string[];
   createdAt: string;
   updatedAt: string;
 }
