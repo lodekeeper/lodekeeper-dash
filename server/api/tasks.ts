@@ -55,7 +55,7 @@ router.get("/", async (_req: Request, res: Response) => {
 
 // POST /api/tasks — create a new task
 router.post("/", async (req: Request, res: Response) => {
-  const { title, priority, status, description, source } = req.body;
+  const { title, priority, status, description, source, attachments } = req.body;
   if (!title) {
     res.status(400).json({ error: "Title required" });
     return;
@@ -69,6 +69,7 @@ router.post("/", async (req: Request, res: Response) => {
     status: status || "todo",
     description,
     source: source || `Dashboard (${(req as any).user?.username})`,
+    attachments: Array.isArray(attachments) ? attachments : undefined,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
