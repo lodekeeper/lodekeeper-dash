@@ -33,28 +33,35 @@ export function parseBacklog(content: string): Task[] {
   const tasks: Task[] = [];
   const lines = content.split("\n");
   let currentTask: Partial<Task> | null = null;
+  let currentTaskInCompleted = false;
   let inCompleted = false;
 
   for (const line of lines) {
-    // Detect completed section
+    // Detect completed section — flush any pending active task first
     if (line.match(/^## Completed/i)) {
+      if (currentTask?.title) {
+        tasks.push(finalizeTask(currentTask, currentTaskInCompleted));
+        currentTask = null;
+      }
       inCompleted = true;
       continue;
     }
 
     // Task header: ### 🔴 Title or ### ✅ Title or ### 🟡 Title
-    const taskMatch = line.match(/^###\s+(✅|🔴|🟡|🟢)\s+(.+)/);
+    // Optionally includes embedded ID: ### 🟡 Title <!-- id:abc123 -->
+    const taskMatch = line.match(/^###\s+(✅|🔴|🟡|🟢)\s+(.+?)(?:\s*<!--\s*id:(\S+)\s*-->)?$/);
     if (taskMatch) {
       if (currentTask?.title) {
-        tasks.push(finalizeTask(currentTask, inCompleted));
+        tasks.push(finalizeTask(currentTask, currentTaskInCompleted));
       }
 
-      const [, emoji, title] = taskMatch;
+      const [, emoji, title, embeddedId] = taskMatch;
+      currentTaskInCompleted = inCompleted;
       const isDone = title.includes("— DONE") || title.includes("— MERGED") || emoji === "✅";
       const priority = emoji === "🔴" ? "urgent" : emoji === "🟡" ? "normal" : "low";
 
       currentTask = {
-        id: slugify(title),
+        id: embeddedId || slugify(title),
         title: cleanTitle(title),
         priority: isDone ? "low" : priority,
         status: isDone ? "done" : "todo",
@@ -66,12 +73,12 @@ export function parseBacklog(content: string): Task[] {
       continue;
     }
 
-    // Completed section task: - ✅ Title
+    // Completed section task: - ✅ Title <!-- id:abc123 -->
     if (inCompleted && line.match(/^- ✅\s+(.+)/)) {
-      const match = line.match(/^- ✅\s+(.+)/);
+      const match = line.match(/^- ✅\s+(.+?)(?:\s*<!--\s*id:(\S+)\s*-->)?$/);
       if (match) {
         tasks.push({
-          id: slugify(match[1]),
+          id: match[2] || slugify(match[1]),
           title: match[1],
           priority: "low",
           status: "done",
@@ -116,7 +123,7 @@ export function parseBacklog(content: string): Task[] {
   }
 
   if (currentTask?.title) {
-    tasks.push(finalizeTask(currentTask, inCompleted));
+    tasks.push(finalizeTask(currentTask, currentTaskInCompleted));
   }
 
   return tasks;
@@ -171,7 +178,9 @@ export async function writeBacklog(tasks: Task[]): Promise<void> {
 
   for (const task of active) {
     const emoji = PRIORITY_EMOJI[task.priority] || "🟡";
-    md += `### ${emoji} ${task.title}\n`;
+    // Embed ID for dashboard-created tasks so sync can match them back
+    const idTag = isDashboardCreated(task.id) ? ` <!-- id:${task.id} -->` : "";
+    md += `### ${emoji} ${task.title}${idTag}\n`;
     if (task.source) md += `- **Source:** ${task.source}\n`;
     if (task.description) md += `- **Status:** ${task.description}\n`;
     md += `\n`;
@@ -180,7 +189,8 @@ export async function writeBacklog(tasks: Task[]): Promise<void> {
   if (done.length > 0) {
     md += `---\n\n## Completed\n\n`;
     for (const task of done) {
-      md += `- ✅ ${task.title}\n`;
+      const idTag = isDashboardCreated(task.id) ? ` <!-- id:${task.id} -->` : "";
+      md += `- ✅ ${task.title}${idTag}\n`;
     }
   }
 
