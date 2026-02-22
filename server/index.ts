@@ -15,6 +15,7 @@ import { jobsRouter } from "./api/jobs.js";
 import { statusRouter } from "./api/status.js";
 import { streamRouter } from "./api/stream.js";
 import { usageRouter } from "./api/usage.js";
+import { chatRouter } from "./api/chat.js";
 import { setupWsHub } from "./ws/hub.js";
 import { ensureDataDir, loadConfig } from "./storage/store.js";
 import { startCollectors } from "./collectors/index.js";
@@ -91,6 +92,7 @@ async function main() {
   app.use("/api/jobs", verifyToken, csrfProtect, apiLimiter, jobsRouter);
   app.use("/api/status", verifyToken, csrfProtect, apiLimiter, statusRouter);
   app.use("/api/stream", verifyToken, csrfProtect, apiLimiter, streamRouter);
+  app.use("/api/chat", verifyToken, csrfProtect, chatRouter);
   app.use("/api/usage", verifyToken, csrfProtect, apiLimiter, usageRouter);
 
   // WebSocket

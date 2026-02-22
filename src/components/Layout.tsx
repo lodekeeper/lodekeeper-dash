@@ -6,6 +6,7 @@ import {
   Bot,
   Clock,
   Terminal,
+  MessageSquare,
   BarChart3,
   LogOut,
   Star,
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/jobs", icon: Clock, label: "Jobs" },
   { to: "/stream", icon: Terminal, label: "Stream" },
+  { to: "/chat", icon: MessageSquare, label: "Chat" },
   { to: "/usage", icon: BarChart3, label: "Usage" },
 ];
 

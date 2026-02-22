@@ -28,7 +28,8 @@ router.get("/heartbeat", async (_req: Request, res: Response) => {
 
 // GET /api/jobs/runs/:jobId — fetch run history for a cron job
 router.get("/runs/:jobId", async (req: Request, res: Response) => {
-  const { jobId } = req.params;
+  const jobIdParam = req.params.jobId;
+  const jobId = Array.isArray(jobIdParam) ? jobIdParam[0] : jobIdParam;
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const exec = promisify(execFile);
@@ -37,7 +38,7 @@ router.get("/runs/:jobId", async (req: Request, res: Response) => {
   try {
     const { stdout } = await exec(
       `${NVM_NODE}/openclaw`,
-      ["cron", "runs", jobId, "--json"],
+      ["cron", "runs", jobId || "", "--json"],
       { timeout: 15000, env: { ...process.env, PATH: `${NVM_NODE}:${process.env.PATH}` } }
     );
     const runs = JSON.parse(stdout);

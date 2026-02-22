@@ -12,6 +12,7 @@ import { TrackingPage } from "./pages/TrackingPage";
 import { AgentsPage } from "./pages/AgentsPage";
 import { JobsPage } from "./pages/JobsPage";
 import { StreamPage } from "./pages/StreamPage";
+import { ChatPage } from "./pages/ChatPage";
 
 // Lazy-load heavy pages (Recharts ~400KB)
 const UsagePage = lazy(() => import("./pages/UsagePage").then(m => ({ default: m.UsagePage })));
@@ -102,6 +103,7 @@ export function App() {
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/jobs" element={<JobsPage />} />
         <Route path="/stream" element={<StreamPage />} />
+        <Route path="/chat" element={<ChatPage />} />
         <Route path="/usage" element={<Suspense fallback={<div className="p-6 text-gray-500">Loading...</div>}><UsagePage /></Suspense>} />
       </Route>
     </Routes>

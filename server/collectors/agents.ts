@@ -114,3 +114,11 @@ export async function collectAgents(): Promise<{
 export function getCachedAgents() {
   return { sessions: cachedSessions, processes: cachedProcesses, cliProcesses: cachedCLIProcesses };
 }
+
+export function updateSessionsCache(sessions: AgentSession[]) {
+  cachedSessions = sessions;
+}
+
+export function updateProcessesCache(processes: RunningProcess[]) {
+  cachedProcesses = processes;
+}

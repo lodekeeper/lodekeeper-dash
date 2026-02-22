@@ -177,7 +177,9 @@ router.post("/upload", async (req: Request, res: Response) => {
 // GET /api/tasks/uploads/:filename — serve uploaded images
 router.get("/uploads/:filename", async (req: Request, res: Response) => {
   try {
-    const filename = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, ""); // sanitize
+    const filenameParam = req.params.filename;
+    const filenameRaw = Array.isArray(filenameParam) ? filenameParam[0] : filenameParam;
+    const filename = (filenameRaw || "").replace(/[^a-zA-Z0-9._-]/g, ""); // sanitize
     const filePath = path.join(getDataDir(), "uploads", filename);
     const stat = await fs.stat(filePath);
     if (!stat.isFile()) {

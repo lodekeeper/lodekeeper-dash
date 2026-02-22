@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { getCachedAgents, collectAgents } from "../collectors/agents.js";
+import { getCachedAgents, collectAgents, updateSessionsCache, updateProcessesCache } from "../collectors/agents.js";
 import { broadcast } from "../ws/hub.js";
 
 const router = Router();
