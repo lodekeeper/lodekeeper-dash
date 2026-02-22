@@ -5,3 +5,4 @@ data/
 *.local
 .vite/
 TASK-FRONTEND.md
+.env.traefik
