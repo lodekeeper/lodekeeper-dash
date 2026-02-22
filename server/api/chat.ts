@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { Readable } from "node:stream";
 
 const router = Router();
 const GATEWAY_URL = "http://127.0.0.1:18789/v1/chat/completions";
@@ -123,34 +124,24 @@ router.post("/", async (req: Request, res: Response) => {
     "X-Accel-Buffering": "no",
   });
 
-  const reader = upstream.body.getReader();
-
+  // Convert web ReadableStream to Node stream and pipe directly
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        const chunk = Buffer.from(value);
-        res.write(chunk);
-        // Force flush — critical for SSE through Express
-        if (typeof (res as any).flush === "function") {
-          (res as any).flush();
-        }
-      }
-    }
-    res.end();
-  } catch (err) {
-    if (!res.headersSent) {
-      res.status(502).json({
-        error: "Failed to stream gateway response",
-        details: err instanceof Error ? err.message : String(err),
+    const nodeStream = Readable.fromWeb(upstream.body as any);
+    nodeStream.pipe(res);
+    await new Promise<void>((resolve, reject) => {
+      nodeStream.on("end", resolve);
+      nodeStream.on("error", reject);
+      res.on("close", () => {
+        nodeStream.destroy();
+        resolve();
       });
-      return;
+    });
+  } catch (err) {
+    console.error("[chat] stream error:", err);
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`);
+      res.end();
     }
-    res.write(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`);
-    res.end();
-  } finally {
-    reader.releaseLock();
   }
 });
 

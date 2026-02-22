@@ -1,0 +1,20 @@
+services:
+  lodekeeper-dash:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${LODEKEEPER_HOST:-lodekeeper}.service=${LODEKEEPER_HOST:-lodekeeper}
+      - traefik.http.routers.${LODEKEEPER_HOST:-lodekeeper}.entrypoints=websecure
+      - traefik.http.routers.${LODEKEEPER_HOST:-lodekeeper}.rule=Host(`${LODEKEEPER_HOST:-lodekeeper}.${DOMAIN}`)
+      - traefik.http.routers.${LODEKEEPER_HOST:-lodekeeper}.tls.certresolver=letsencrypt
+      - traefik.http.services.${LODEKEEPER_HOST:-lodekeeper}.loadbalancer.server.port=80
+    networks:
+      - dvnode
+
+networks:
+  dvnode:
+    name: charon_dvnode
+    external: true

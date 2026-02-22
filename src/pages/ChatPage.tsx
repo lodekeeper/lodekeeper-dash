@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Send, Loader2, Slash } from "lucide-react";
+import { Send, Loader2, Slash, Square } from "lucide-react";
 import { ApiError } from "../api/client";
 
 const SLASH_COMMANDS: { cmd: string; desc: string }[] = [
@@ -22,8 +22,32 @@ interface ChatMessage {
   content: string;
 }
 
+const STORAGE_KEY = "lodekeeper-chat-history";
+const MAX_STORED_MESSAGES = 100;
+const FETCH_TIMEOUT_MS = 60_000;
+
 function createId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function loadMessages(): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.slice(-MAX_STORED_MESSAGES);
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(messages: ChatMessage[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-MAX_STORED_MESSAGES)));
+  } catch {
+    // storage full or unavailable — silently ignore
+  }
 }
 
 function parseInline(text: string): Array<{ type: "text" | "strong" | "code"; value: string }> {
@@ -118,14 +142,23 @@ function renderSimpleMarkdown(text: string): JSX.Element[] {
 }
 
 export function ChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slashIndex, setSlashIndex] = useState(-1);
   const endRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const canSend = !isStreaming && input.trim().length > 0;
+  const shouldDisable = isStreaming;
+
+  const cancelRequest = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    setMessages([]);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
 
   const slashMatches = useMemo(() => {
     const trimmed = input.trimStart();
@@ -146,6 +179,11 @@ export function ChatPage() {
     setInput(cmd + " ");
     setSlashIndex(-1);
   }, []);
+
+  // Persist messages to localStorage
+  useEffect(() => {
+    saveMessages(messages);
+  }, [messages]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -233,7 +271,7 @@ export function ChatPage() {
       case "/reset":
       case "/sessions":
       case "/agent":
-        return null; // pass through to gateway
+        return `The **${cmd}** command is handled by OpenClaw's session layer and isn't available through the dashboard chat API yet. Use Telegram or webchat for slash commands, or just ask me naturally — e.g. "what's the current status?"`;
       default:
         return null;
     }
@@ -271,6 +309,7 @@ export function ChatPage() {
 
     const abort = new AbortController();
     abortRef.current = abort;
+    const timeout = setTimeout(() => abort.abort(), FETCH_TIMEOUT_MS);
 
     try {
       const res = await fetch("/api/chat", {
@@ -310,7 +349,10 @@ export function ChatPage() {
         ))
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to send message";
+      const isAbort = err instanceof DOMException && err.name === "AbortError";
+      const message = isAbort
+        ? "Request timed out — the gateway may be busy. Try again."
+        : err instanceof Error ? err.message : "Failed to send message";
       setError(message);
       setMessages((prev) =>
         prev.map((m) => (
@@ -320,10 +362,11 @@ export function ChatPage() {
         ))
       );
     } finally {
+      clearTimeout(timeout);
       abortRef.current = null;
       setIsStreaming(false);
     }
-  }, [input, isStreaming, parseSseStream, sendHistory]);
+  }, [input, isStreaming, handleSlashCommand, parseSseStream, sendHistory]);
 
   return (
     <div className="h-full bg-surface-0 p-6 flex flex-col">
@@ -431,20 +474,43 @@ export function ChatPage() {
               rows={3}
               className="flex-1 rounded-lg border border-surface-3 bg-surface-2 px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-accent disabled:opacity-60 resize-none"
               placeholder="Send a message or /command..."
+              disabled={shouldDisable}
             />
-            <button
-              type="button"
-              onClick={() => void sendMessage()}
-              disabled={!canSend}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Send className="h-4 w-4" />
-              Send
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={cancelRequest}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-red-600 px-3 text-sm font-medium text-white hover:opacity-90"
+              >
+                <Square className="h-3.5 w-3.5" />
+                Stop
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void sendMessage()}
+                disabled={shouldDisable || input.trim().length === 0}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Send className="h-4 w-4" />
+                Send
+              </button>
+            )}
           </div>
 
           <div className="mt-2 flex items-center justify-between">
-            <p className="text-xs text-gray-500">Try <span className="text-accent">/status</span>, <span className="text-accent">/compact</span>, <span className="text-accent">/model</span>, <span className="text-accent">/help</span></p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-gray-500">Try <span className="text-accent">/status</span>, <span className="text-accent">/compact</span>, <span className="text-accent">/model</span>, <span className="text-accent">/help</span></p>
+              {messages.length > 0 && !isStreaming && (
+                <button
+                  type="button"
+                  onClick={clearHistory}
+                  className="text-xs text-gray-500 hover:text-gray-300 underline"
+                >
+                  Clear history
+                </button>
+              )}
+            </div>
             {error && <p className="text-xs text-red-400">{error}</p>}
           </div>
         </div>
