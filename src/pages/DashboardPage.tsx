@@ -52,7 +52,7 @@ function StatusCard() {
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Zap className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-200 truncate max-w-[400px]">{currentWork}</span>
+              <span className="text-gray-200 truncate max-w-[200px] sm:max-w-[400px]">{currentWork}</span>
             </div>
             {status?.uptime != null && (
               <div className="flex items-center gap-2 text-sm">
@@ -364,7 +364,7 @@ export function DashboardPage() {
   }, [fetchTasks, fetchGitHub, fetchDiscord, fetchAgents, fetchJobs, fetchStatus]);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-7xl mx-auto">
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

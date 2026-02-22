@@ -360,9 +360,9 @@ export function ChatPage() {
   }, [input, isStreaming, handleSlashCommand, parseSseStream, sendHistory]);
 
   return (
-    <div className="h-full bg-surface-0 p-6 flex flex-col">
+    <div className="h-full bg-surface-0 p-3 sm:p-6 flex flex-col">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-100">Chat</h1>
+        <h1 className="text-lg sm:text-2xl font-bold text-gray-100">Chat</h1>
         <p className="text-sm text-gray-400 mt-1">Talk to the OpenClaw gateway session from the dashboard.</p>
       </div>
 
@@ -462,8 +462,8 @@ export function ChatPage() {
                   void sendMessage();
                 }
               }}
-              rows={3}
-              className="flex-1 rounded-lg border border-surface-3 bg-surface-2 px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-accent disabled:opacity-60 resize-none"
+              rows={2}
+              className="flex-1 rounded-lg border border-surface-3 bg-surface-2 px-3 py-2 text-base sm:text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-accent disabled:opacity-60 resize-none"
               placeholder="Send a message or /command..."
               disabled={shouldDisable}
             />

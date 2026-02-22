@@ -76,7 +76,7 @@ function GitHubTab() {
           {prs.length === 0 ? (
             <p className="p-4 text-sm text-gray-500">No open PRs</p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm min-w-[500px]">
               <thead>
                 <tr className="border-b border-surface-3 text-gray-500 text-xs">
                   <th className="text-left p-3 font-medium w-6"></th>
@@ -127,7 +127,7 @@ function GitHubTab() {
                   </>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
       </div>
@@ -178,7 +178,7 @@ function IssuesSection() {
         Issues ({issues.length})
       </h3>
       <div className="bg-surface-1 rounded-lg border border-surface-3 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm min-w-[500px]">
           <thead>
             <tr className="border-b border-surface-3 text-gray-500 text-xs">
               <th className="text-left p-3 font-medium">#</th>
@@ -212,7 +212,7 @@ function IssuesSection() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );
@@ -238,7 +238,7 @@ function DiscordTab() {
         {threads.length === 0 ? (
           <p className="p-4 text-sm text-gray-500">No tracked threads</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm min-w-[500px]">
             <thead>
               <tr className="border-b border-surface-3 text-gray-500 text-xs">
                 <th className="text-left p-3 font-medium w-6"></th>
@@ -303,7 +303,7 @@ function DiscordTab() {
                 </>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>
@@ -354,7 +354,7 @@ export function TrackingPage() {
   }, [fetchGitHub, fetchDiscord]);
 
   return (
-    <div className="p-6 space-y-4 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
       <h1 className="text-xl font-semibold">Tracking</h1>
 
       <div className="flex gap-1 bg-surface-1 p-1 rounded-lg w-fit">

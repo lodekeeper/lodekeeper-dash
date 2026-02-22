@@ -106,7 +106,7 @@ export function UsagePage() {
 
   if (!data) {
     return (
-      <div className="p-6 flex items-center justify-center h-full">
+      <div className="p-4 md:p-6 flex items-center justify-center h-full">
         <div className="text-gray-500">{loading ? "Loading..." : "No data"}</div>
       </div>
     );
@@ -134,7 +134,7 @@ export function UsagePage() {
     }));
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold flex items-center gap-2">
           <BarChart3 className="w-5 h-5" />
@@ -258,7 +258,7 @@ export function UsagePage() {
           <h2 className="text-sm font-semibold">All Sessions ({data.sessions.length})</h2>
         </div>
         <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto"><table className="w-full text-xs min-w-[500px]">
             <thead className="sticky top-0 bg-surface-2">
               <tr className="text-left text-gray-500">
                 <th className="px-4 py-2 font-medium">Session</th>
@@ -308,7 +308,7 @@ export function UsagePage() {
                   );
                 })}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     </div>

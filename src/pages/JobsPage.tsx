@@ -30,7 +30,7 @@ function JobRunHistory({ jobId }: { jobId: string }) {
     <tr>
       <td colSpan={6} className="px-3 pb-3">
         <div className="bg-surface-0 rounded-lg border border-surface-3 overflow-hidden">
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto"><table className="w-full text-xs min-w-[500px]">
             <thead>
               <tr className="border-b border-surface-3 text-gray-600">
                 <th className="text-left p-2 font-medium">Started</th>
@@ -63,7 +63,7 @@ function JobRunHistory({ jobId }: { jobId: string }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </td>
     </tr>
@@ -85,7 +85,7 @@ export function JobsPage() {
   }, []);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-7xl mx-auto">
       <h1 className="text-xl font-semibold">Periodic Jobs</h1>
 
       {/* Cron Jobs */}

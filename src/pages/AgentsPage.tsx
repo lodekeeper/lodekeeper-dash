@@ -75,7 +75,7 @@ export function AgentsPage() {
   }, [fetchAgents]);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-7xl mx-auto">
       <h1 className="text-xl font-semibold">Agents & Sessions</h1>
 
       {sessions.length === 0 ? (

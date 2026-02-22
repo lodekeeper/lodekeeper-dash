@@ -576,7 +576,7 @@ export function TasksPage() {
   };
 
   return (
-    <div className="p-6 space-y-4 h-full flex flex-col">
+    <div className="p-4 md:p-6 space-y-4 h-full flex flex-col">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Task Board</h1>
         <div className="flex gap-2">

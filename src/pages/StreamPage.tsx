@@ -261,9 +261,9 @@ export function StreamPage() {
   const older = filtered.filter((s) => s.ageMin >= 60);
 
   return (
-    <div className="p-6 h-full flex gap-4 max-w-[1600px] mx-auto">
-      {/* Session sidebar */}
-      <div className="w-72 flex-shrink-0 flex flex-col bg-surface-1 rounded-lg border border-surface-3 overflow-hidden">
+    <div className="p-4 md:p-6 h-full flex flex-col md:flex-row gap-4 max-w-[1600px] mx-auto">
+      {/* Session sidebar — collapsible on mobile */}
+      <div className="hidden md:flex w-72 flex-shrink-0 flex-col bg-surface-1 rounded-lg border border-surface-3 overflow-hidden">
         <div className="p-3 border-b border-surface-3">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-semibold flex items-center gap-1.5">
@@ -353,8 +353,13 @@ export function StreamPage() {
 
       {/* Terminal area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile: session count indicator (sessions panel hidden) */}
+        <div className="md:hidden mb-2 px-3 py-2 bg-surface-1 rounded-lg border border-surface-3 text-xs text-gray-400">
+          <Radio className="w-3.5 h-3.5 inline mr-1.5" />
+          {sessions.length} sessions — use desktop for session picker
+        </div>
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-semibold flex items-center gap-2">
+          <h1 className="text-lg md:text-xl font-semibold flex items-center gap-2">
             <TerminalIcon className="w-5 h-5" />
             Live Stream
             {connected && selectedSession && (

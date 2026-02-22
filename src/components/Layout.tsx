@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
 import { StatusBadge } from "./StatusBadge";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -32,8 +33,8 @@ export function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-56 bg-surface-1 border-r border-surface-3 flex flex-col shrink-0">
+      {/* Sidebar — hidden on mobile, visible on md+ */}
+      <aside className="hidden md:flex w-56 bg-surface-1 border-r border-surface-3 flex-col shrink-0">
         {/* Logo */}
         <div className="p-4 border-b border-surface-3 flex items-center gap-2">
           <Star className="w-5 h-5 text-accent" />
@@ -74,10 +75,13 @@ export function Layout() {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-surface-0">
+      {/* Main Content — bottom padding on mobile for nav bar */}
+      <main className="flex-1 overflow-y-auto bg-surface-0 pb-16 md:pb-0">
         <Outlet />
       </main>
+
+      {/* Mobile bottom nav */}
+      <MobileBottomNav />
     </div>
   );
 }
