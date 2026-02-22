@@ -8,6 +8,83 @@ import { nanoid } from "nanoid";
 
 const router = Router();
 
+// ── Brute-force protection ──────────────────────────────────────────
+// Tracks failed login attempts per IP. After MAX_ATTEMPTS failures within
+// the window, the IP is locked out with exponential backoff.
+interface LoginAttempt {
+  failures: number;
+  firstFailure: number;
+  lockedUntil: number;
+}
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;   // 15 min sliding window
+const MAX_ATTEMPTS = 5;                     // lock after 5 failures
+const BASE_LOCKOUT_MS = 60 * 1000;         // 1 min initial lockout
+const MAX_LOCKOUT_MS = 30 * 60 * 1000;     // 30 min max lockout
+const loginAttempts = new Map<string, LoginAttempt>();
+
+function getClientIp(req: Request): string {
+  // Trust X-Forwarded-For from Traefik/nginx
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
+  return req.ip || req.socket.remoteAddress || "unknown";
+}
+
+function checkLoginAllowed(ip: string): { allowed: boolean; retryAfterSec?: number } {
+  const record = loginAttempts.get(ip);
+  if (!record) return { allowed: true };
+
+  const now = Date.now();
+
+  // Window expired — reset
+  if (now - record.firstFailure > LOGIN_WINDOW_MS && record.lockedUntil < now) {
+    loginAttempts.delete(ip);
+    return { allowed: true };
+  }
+
+  // Currently locked out
+  if (record.lockedUntil > now) {
+    return { allowed: false, retryAfterSec: Math.ceil((record.lockedUntil - now) / 1000) };
+  }
+
+  return { allowed: true };
+}
+
+function recordLoginFailure(ip: string): void {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+
+  if (!record || (now - record.firstFailure > LOGIN_WINDOW_MS && record.lockedUntil < now)) {
+    loginAttempts.set(ip, { failures: 1, firstFailure: now, lockedUntil: 0 });
+    return;
+  }
+
+  record.failures += 1;
+
+  if (record.failures >= MAX_ATTEMPTS) {
+    // Exponential backoff: 1m, 2m, 4m, 8m, 16m, 30m (capped)
+    const lockoutMultiplier = Math.pow(2, Math.floor(record.failures / MAX_ATTEMPTS) - 1);
+    const lockoutMs = Math.min(BASE_LOCKOUT_MS * lockoutMultiplier, MAX_LOCKOUT_MS);
+    record.lockedUntil = now + lockoutMs;
+    console.log(`[auth] IP ${ip} locked for ${lockoutMs / 1000}s after ${record.failures} failed attempts`);
+  }
+}
+
+function recordLoginSuccess(ip: string): void {
+  loginAttempts.delete(ip);
+}
+
+// Cleanup stale records every 15 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of loginAttempts) {
+    if (now - record.firstFailure > LOGIN_WINDOW_MS && record.lockedUntil < now) {
+      loginAttempts.delete(ip);
+    }
+  }
+}, 15 * 60 * 1000);
+
+// ── Token revocation ────────────────────────────────────────────────
 // Simple in-memory token blacklist (cleared on restart — acceptable for single-server dashboard)
 const revokedTokens = new Set<string>();
 const REVOKE_CLEANUP_INTERVAL = 60 * 60 * 1000; // 1h
@@ -100,8 +177,19 @@ router.post("/setup", async (req: Request, res: Response) => {
   res.json({ ok: true, user: { id: user.id, username: user.username, role: user.role } });
 });
 
-// Login
+// Login (with brute-force protection)
 router.post("/login", async (req: Request, res: Response) => {
+  const ip = getClientIp(req);
+  const { allowed, retryAfterSec } = checkLoginAllowed(ip);
+
+  if (!allowed) {
+    res.status(429).json({
+      error: "Too many failed attempts. Try again later.",
+      retryAfterSec,
+    });
+    return;
+  }
+
   const { username, password } = req.body;
   if (!username || !password) {
     res.status(400).json({ error: "Username and password required" });
@@ -111,16 +199,21 @@ router.post("/login", async (req: Request, res: Response) => {
   const config = await loadConfig();
   const user = config.users.find((u) => u.username === username);
   if (!user) {
+    recordLoginFailure(ip);
+    // Constant-time delay to prevent username enumeration
+    await bcrypt.compare(password, "$2a$12$000000000000000000000000000000000000000000");
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    recordLoginFailure(ip);
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 
+  recordLoginSuccess(ip);
   const token = signToken(user);
   setTokenCookie(res, token);
   res.json({ ok: true, user: { id: user.id, username: user.username, role: user.role } });
