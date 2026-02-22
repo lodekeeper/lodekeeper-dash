@@ -37,6 +37,10 @@ async function main() {
   await ensureDataDir();
 
   const app = express();
+
+  // Trust first proxy (nginx/Traefik) for X-Forwarded-For
+  app.set("trust proxy", 1);
+
   const server = http.createServer(app);
 
   // Security

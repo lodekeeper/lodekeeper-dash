@@ -260,21 +260,12 @@ export function ChatPage() {
 
   const handleSlashCommand = useCallback((command: string): string | null => {
     const cmd = command.split(/\s/)[0]?.toLowerCase();
-    switch (cmd) {
-      case "/help":
-        return SLASH_COMMANDS.map((c) => `**${c.cmd}** — ${c.desc}`).join("\n");
-      case "/status":
-      case "/compact":
-      case "/model":
-      case "/reasoning":
-      case "/verbose":
-      case "/reset":
-      case "/sessions":
-      case "/agent":
-        return `The **${cmd}** command is handled by OpenClaw's session layer and isn't available through the dashboard chat API yet. Use Telegram or webchat for slash commands, or just ask me naturally — e.g. "what's the current status?"`;
-      default:
-        return null;
+    // /help can be resolved client-side for quick reference
+    if (cmd === "/help") {
+      return SLASH_COMMANDS.map((c) => `**${c.cmd}** — ${c.desc}`).join("\n");
     }
+    // All other slash commands are sent to the gateway (it handles them natively)
+    return null;
   }, []);
 
   const sendMessage = useCallback(async () => {
