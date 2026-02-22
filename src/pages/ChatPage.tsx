@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Slash } from "lucide-react";
 import { ApiError } from "../api/client";
+
+const SLASH_COMMANDS: { cmd: string; desc: string }[] = [
+  { cmd: "/status", desc: "Show session status (model, tokens, uptime)" },
+  { cmd: "/compact", desc: "Compact conversation context" },
+  { cmd: "/model", desc: "Show or change the current model" },
+  { cmd: "/help", desc: "List available commands" },
+  { cmd: "/reasoning", desc: "Toggle extended thinking" },
+  { cmd: "/verbose", desc: "Toggle verbose tool output" },
+  { cmd: "/reset", desc: "Reset the session" },
+  { cmd: "/sessions", desc: "List active sessions" },
+  { cmd: "/agent", desc: "Switch agent context" },
+];
 
 type ChatRole = "user" | "assistant" | "system";
 
@@ -110,9 +122,30 @@ export function ChatPage() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [slashIndex, setSlashIndex] = useState(-1);
   const endRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const shouldDisable = isStreaming;
+
+  const slashMatches = useMemo(() => {
+    const trimmed = input.trimStart();
+    if (!trimmed.startsWith("/")) return [];
+    // Only match if it's a single token (no spaces yet, or cursor is still on the command)
+    const firstSpace = trimmed.indexOf(" ");
+    if (firstSpace > 0) return [];
+    const query = trimmed.toLowerCase();
+    return SLASH_COMMANDS.filter((c) => c.cmd.startsWith(query));
+  }, [input]);
+
+  // Reset selection when matches change
+  useEffect(() => {
+    setSlashIndex((prev) => (slashMatches.length === 0 ? -1 : Math.min(prev, slashMatches.length - 1)));
+  }, [slashMatches]);
+
+  const selectSlashCommand = useCallback((cmd: string) => {
+    setInput(cmd + " ");
+    setSlashIndex(-1);
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -305,12 +338,60 @@ export function ChatPage() {
           <div ref={endRef} />
         </div>
 
-        <div className="border-t border-surface-3 p-4">
+        <div className="border-t border-surface-3 p-4 relative">
+          {slashMatches.length > 0 && (
+            <div className="absolute bottom-full left-4 right-4 mb-1 max-h-52 overflow-y-auto rounded-lg border border-surface-3 bg-surface-2 shadow-lg z-10">
+              {slashMatches.map((item, idx) => (
+                <button
+                  key={item.cmd}
+                  type="button"
+                  className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                    idx === slashIndex
+                      ? "bg-accent/20 text-gray-100"
+                      : "text-gray-300 hover:bg-surface-3"
+                  }`}
+                  onMouseEnter={() => setSlashIndex(idx)}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // keep focus on textarea
+                    selectSlashCommand(item.cmd);
+                  }}
+                >
+                  <Slash className="h-3.5 w-3.5 shrink-0 text-accent" />
+                  <span className="font-medium text-accent">{item.cmd}</span>
+                  <span className="text-xs text-gray-500">{item.desc}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 items-end">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
+                if (slashMatches.length > 0) {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setSlashIndex((prev) => Math.min(prev + 1, slashMatches.length - 1));
+                    return;
+                  }
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setSlashIndex((prev) => Math.max(prev - 1, 0));
+                    return;
+                  }
+                  if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && slashIndex >= 0)) {
+                    e.preventDefault();
+                    const selected = slashMatches[Math.max(slashIndex, 0)];
+                    if (selected) selectSlashCommand(selected.cmd);
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setSlashIndex(-1);
+                    setInput("");
+                    return;
+                  }
+                }
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   void sendMessage();
