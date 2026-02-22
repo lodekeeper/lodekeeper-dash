@@ -125,7 +125,7 @@ export function ChatPage() {
   const [slashIndex, setSlashIndex] = useState(-1);
   const endRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const shouldDisable = isStreaming;
+  const canSend = !isStreaming && input.trim().length > 0;
 
   const slashMatches = useMemo(() => {
     const trimmed = input.trimStart();
@@ -220,14 +220,45 @@ export function ChatPage() {
     }
   }, [appendAssistantChunk]);
 
+  const handleSlashCommand = useCallback((command: string): string | null => {
+    const cmd = command.split(/\s/)[0]?.toLowerCase();
+    switch (cmd) {
+      case "/help":
+        return SLASH_COMMANDS.map((c) => `**${c.cmd}** — ${c.desc}`).join("\n");
+      case "/status":
+      case "/compact":
+      case "/model":
+      case "/reasoning":
+      case "/verbose":
+      case "/reset":
+      case "/sessions":
+      case "/agent":
+        return null; // pass through to gateway
+      default:
+        return null;
+    }
+  }, []);
+
   const sendMessage = useCallback(async () => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming) return;
 
     setError(null);
-    setIsStreaming(true);
 
     const userMessage: ChatMessage = { id: createId(), role: "user", content: trimmed };
+
+    // Handle slash commands that can be resolved client-side
+    if (trimmed.startsWith("/")) {
+      const localResponse = handleSlashCommand(trimmed);
+      if (localResponse !== null) {
+        const assistantMessage: ChatMessage = { id: createId(), role: "assistant", content: localResponse };
+        setMessages((prev) => [...prev, userMessage, assistantMessage]);
+        setInput("");
+        return;
+      }
+    }
+
+    setIsStreaming(true);
     const assistantMessage: ChatMessage = { id: createId(), role: "assistant", content: "" };
 
     const requestMessages = [
@@ -400,12 +431,11 @@ export function ChatPage() {
               rows={3}
               className="flex-1 rounded-lg border border-surface-3 bg-surface-2 px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-accent disabled:opacity-60 resize-none"
               placeholder="Send a message or /command..."
-              disabled={shouldDisable}
             />
             <button
               type="button"
               onClick={() => void sendMessage()}
-              disabled={shouldDisable || input.trim().length === 0}
+              disabled={!canSend}
               className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Send className="h-4 w-4" />

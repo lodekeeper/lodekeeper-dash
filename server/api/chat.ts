@@ -113,11 +113,15 @@ router.post("/", async (req: Request, res: Response) => {
     return;
   }
 
-  res.status(200);
-  res.setHeader("Content-Type", upstream.headers.get("content-type") || "text/event-stream; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders();
+  const contentType = upstream.headers.get("content-type") || "text/event-stream; charset=utf-8";
+  console.log("[chat] streaming response, content-type:", contentType);
+
+  res.writeHead(200, {
+    "Content-Type": contentType,
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
 
   const reader = upstream.body.getReader();
 
@@ -126,7 +130,12 @@ router.post("/", async (req: Request, res: Response) => {
       const { done, value } = await reader.read();
       if (done) break;
       if (value) {
-        res.write(Buffer.from(value));
+        const chunk = Buffer.from(value);
+        res.write(chunk);
+        // Force flush — critical for SSE through Express
+        if (typeof (res as any).flush === "function") {
+          (res as any).flush();
+        }
       }
     }
     res.end();
